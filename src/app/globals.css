@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+/* ─── Dark Fantasy Theme ──────────────────────────────────────── */
+
+:root {
+  /* Backgrounds */
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a2e;
+  --color-bg-card: #16161f;
+  --color-bg-card-hover: #1e1e2d;
+
+  /* Gold accents */
+  --color-gold: #c4a55a;
+  --color-gold-bright: #d4b96a;
+  --color-gold-dim: #8a7a3a;
+
+  /* Text */
+  --color-text-primary: #e8e0d0;
+  --color-text-secondary: #a09888;
+  --color-text-muted: #605848;
+  --color-text-gold: #c4a55a;
+
+  /* Game colors */
+  --color-blood-red: #8b1a1a;
+  --color-blood-red-bright: #c42a2a;
+  --color-health-green: #2a6e2a;
+  --color-health-green-bright: #3a9e3a;
+  --color-ice-blue: #4a9eff;
+  --color-shadow-purple: #6a4aaa;
+
+  /* Figure colors */
+  --color-character: #4a9eff;
+  --color-monster-normal: #c42a2a;
+  --color-monster-elite: #d4a020;
+
+  /* Card sides */
+  --color-side-a: #3a6e9e;
+  --color-side-b: #9e5a3a;
+
+  /* Terrain */
+  --color-hex-empty: #1a1a28;
+  --color-hex-empty-stroke: #2a2a3a;
+  --color-hex-obstacle: #0d0d12;
+  --color-hex-difficult: #2a2a1a;
+  --color-hex-hazard: #3a1a1a;
+  --color-hex-reachable: rgba(74, 158, 255, 0.25);
+  --color-hex-reachable-stroke: rgba(74, 158, 255, 0.6);
+
+  /* Fonts */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Base styles ─────────────────────────────────────────────── */
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+
+/* ─── Ability Card ────────────────────────────────────────────── */
+
+.ability-card {
+  width: 160px;
+  min-height: 200px;
+  background: var(--color-bg-card);
+  border: 2px solid var(--color-gold-dim);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ability-card:hover {
+  background: var(--color-bg-card-hover);
+  border-color: var(--color-gold);
+  transform: translateY(-4px);
+}
+
+.ability-card--selected {
+  border-color: var(--color-gold-bright) !important;
+  box-shadow: 0 0 20px rgba(196, 165, 90, 0.3);
+  transform: translateY(-8px);
+}
+
+.ability-card--side-a {
+  border-left: 4px solid var(--color-side-a);
+}
+
+.ability-card--side-b {
+  border-left: 4px solid var(--color-side-b);
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────── */
+
+.btn-primary {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background-color: var(--color-gold);
+  color: var(--color-bg-primary);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-gold-bright);
+}
+
+.btn-primary:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-gold-dim);
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-bg-card-hover);
+  color: var(--color-text-primary);
+}
+
+/* ─── Hex grid ────────────────────────────────────────────────── */
+
+.hex-tile {
+  transition: all 0.15s ease;
+}
+
+.hex-tile:hover {
+  filter: brightness(1.2);
+}
+
+.hex-reachable {
+  cursor: pointer;
+}
+
+.hex-reachable:hover {
+  filter: brightness(1.4);
+}
+
+/* ─── Figure animations ───────────────────────────────────────── */
+
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+  50% { filter: drop-shadow(0 0 12px currentColor); }
+}
+
+.figure-targetable {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.figure-token {
+  transition: all 0.4s ease;
+}
+
+/* ─── Game log ────────────────────────────────────────────────── */
+
+.game-log-entry {
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-bg-tertiary);
+}
+
+.game-log-entry:last-child {
+  border-bottom: none;
+  color: var(--color-text-primary);
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gold-dim);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
