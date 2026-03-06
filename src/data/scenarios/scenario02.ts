@@ -17,8 +17,8 @@ import type { ScenarioDef } from '@/types/scenario';
  */
 export const SCENARIO_02: ScenarioDef = {
   id: 'scenario-02',
-  name: 'The Ambush',
-  description: 'Fight through an ambush of guards and archers in the narrow corridor.',
+  name: "L'Embuscade",
+  description: 'Frayez-vous un chemin \u00e0 travers une embuscade de gardes et archers.',
   characterStart: { q: -2, r: 0 },
   objectiveType: 'kill_all',
   requiredMonsters: ['guard', 'archer'],

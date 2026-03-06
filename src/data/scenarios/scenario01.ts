@@ -17,8 +17,8 @@ import type { ScenarioDef } from '@/types/scenario';
  */
 export const SCENARIO_01: ScenarioDef = {
   id: 'scenario-01',
-  name: 'The Gatehouse',
-  description: 'Clear the guards blocking the old gatehouse passage.',
+  name: 'Le Corps de Garde',
+  description: '\u00c9liminez les gardes qui bloquent le passage du vieux corps de garde.',
   characterStart: { q: -2, r: 1 },
   objectiveType: 'kill_all',
   requiredMonsters: ['guard', 'archer'],

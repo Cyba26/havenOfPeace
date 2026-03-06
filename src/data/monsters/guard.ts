@@ -3,7 +3,7 @@ import { MODIFIER_MISS, MODIFIER_X2 } from '@/types/monsters';
 
 export const GUARD_DEF: MonsterDef = {
   id: 'guard',
-  name: 'Guard',
+  name: 'Garde',
   isRanged: false,
   baseAttack: 2,
   baseMove: 2,

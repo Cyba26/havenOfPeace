@@ -1,6 +1,8 @@
 'use client';
 import React from 'react';
 import type { AbilityCardDef, CardState } from '@/types/cards';
+import { ActionIcon } from '@/components/icons/ActionIcon';
+import { t } from '@/i18n';
 
 interface CardSelectorProps {
   selectedCards: [string, string];
@@ -31,15 +33,16 @@ export function CardSelector({
   const isAssigned = topCardId && bottomCardId;
 
   return (
-    <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)' }}>
+    <div className="rounded-lg p-4 card-enter" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)' }}>
       <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-        Assign Actions
+        {t('assign_actions')}
       </h3>
 
       {/* Top action */}
       <div className="mb-3">
-        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>
-          Top Action from:
+        <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+          <ActionIcon icon="attack" size={10} />
+          {t('top_action')}
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {selectedCards.filter(Boolean).map(defId => (
@@ -63,15 +66,16 @@ export function CardSelector({
               color: topCardId === '__default_top__' ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
             }}
           >
-            Default (Atk 2)
+            {t('default_atk')}
           </button>
         </div>
       </div>
 
       {/* Bottom action */}
       <div className="mb-3">
-        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>
-          Bottom Action from:
+        <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+          <ActionIcon icon="move" size={10} />
+          {t('bottom_action')}
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {selectedCards.filter(Boolean).map(defId => {
@@ -100,7 +104,7 @@ export function CardSelector({
               color: bottomCardId === '__default_bottom__' ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
             }}
           >
-            Default (Move 2)
+            {t('default_move')}
           </button>
         </div>
       </div>
@@ -108,7 +112,7 @@ export function CardSelector({
       {/* Confirm */}
       {isAssigned && (
         <button onClick={onConfirm} className="btn-primary w-full">
-          Execute Actions
+          {t('execute_actions')}
         </button>
       )}
     </div>

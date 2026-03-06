@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import type { CardState, AbilityCardDef } from '@/types/cards';
 import { getASideHandCards, getBSideHandCards, getLossableCards } from '@/engine/cards';
+import { ActionIcon } from '@/components/icons/ActionIcon';
+import { t } from '@/i18n';
 
 interface DamageNegationProps {
   damage: number;
   source: string;
   cards: CardState[];
   cardDefs: AbilityCardDef[];
-  /** Cards selected for the round (not available for negation) */
   selectedCardIds: string[];
   onAccept: () => void;
   onDiscardA: (cardDefId: string) => void;
@@ -23,7 +24,6 @@ export function DamageNegation({
   const [selectedBCards, setSelectedBCards] = useState<string[]>([]);
   const [mode, setMode] = useState<'choose' | 'discard_a' | 'discard_2b' | 'lose'>('choose');
 
-  // Filter out selected cards (not in hand/discard for negation purposes)
   const availableCards = cards.filter(c => !selectedCardIds.includes(c.defId));
   const aSideCards = getASideHandCards(availableCards);
   const bSideCards = getBSideHandCards(availableCards);
@@ -34,29 +34,30 @@ export function DamageNegation({
   if (mode === 'choose') {
     return (
       <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)', border: '2px solid var(--color-blood-red-bright)' }}>
-        <div className="text-sm font-bold mb-2" style={{ color: 'var(--color-blood-red-bright)' }}>
-          Incoming Damage: {damage}
+        <div className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-blood-red-bright)' }}>
+          <ActionIcon icon="wound" size={16} color="var(--color-blood-red-bright)" />
+          {t('incoming_damage')}: {damage}
         </div>
         <div className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          {source} — Choose how to respond:
+          {source} — {t('damage_choose')}
         </div>
         <div className="flex flex-col gap-2">
           <button onClick={onAccept} className="btn-secondary text-xs">
-            Accept {damage} Damage
+            {t('accept_damage', { n: damage })}
           </button>
           {aSideCards.length > 0 && (
             <button onClick={() => setMode('discard_a')} className="btn-secondary text-xs">
-              Discard 1 A-side Card (negate)
+              {t('discard_a')}
             </button>
           )}
           {bSideCards.length >= 2 && (
             <button onClick={() => setMode('discard_2b')} className="btn-secondary text-xs">
-              Discard 2 B-side Cards (negate)
+              {t('discard_2b')}
             </button>
           )}
           {lossableCards.length > 0 && (
             <button onClick={() => setMode('lose')} className="btn-secondary text-xs">
-              Lose 1 Card (negate)
+              {t('lose_card')}
             </button>
           )}
         </div>
@@ -68,7 +69,7 @@ export function DamageNegation({
     return (
       <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)', border: '2px solid var(--color-blood-red-bright)' }}>
         <div className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-gold)' }}>
-          Discard an A-side card:
+          {t('discard_a_pick')}
         </div>
         <div className="flex flex-col gap-1">
           {aSideCards.map(c => (
@@ -78,7 +79,7 @@ export function DamageNegation({
           ))}
         </div>
         <button onClick={() => setMode('choose')} className="text-xs mt-2 underline" style={{ color: 'var(--color-text-muted)' }}>
-          Back
+          {t('back')}
         </button>
       </div>
     );
@@ -88,7 +89,7 @@ export function DamageNegation({
     return (
       <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)', border: '2px solid var(--color-blood-red-bright)' }}>
         <div className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-gold)' }}>
-          Select 2 B-side cards to discard:
+          {t('discard_2b_pick')}
         </div>
         <div className="flex flex-col gap-1">
           {bSideCards.map(c => {
@@ -111,13 +112,13 @@ export function DamageNegation({
                 className="btn-secondary text-xs"
                 style={isSelected ? { border: '2px solid var(--color-text-gold)' } : {}}
               >
-                {getCardName(c.defId)} {isSelected ? '(selected)' : ''}
+                {getCardName(c.defId)} {isSelected ? `(${t('selected')})` : ''}
               </button>
             );
           })}
         </div>
         <button onClick={() => { setMode('choose'); setSelectedBCards([]); }} className="text-xs mt-2 underline" style={{ color: 'var(--color-text-muted)' }}>
-          Back
+          {t('back')}
         </button>
       </div>
     );
@@ -127,17 +128,17 @@ export function DamageNegation({
     return (
       <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)', border: '2px solid var(--color-blood-red-bright)' }}>
         <div className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-gold)' }}>
-          Lose a card to negate:
+          {t('lose_card_pick')}
         </div>
         <div className="flex flex-col gap-1">
           {lossableCards.map(c => (
             <button key={c.defId} onClick={() => onLoseCard(c.defId)} className="btn-secondary text-xs">
-              {getCardName(c.defId)} ({c.location}, {c.currentSide}-side)
+              {getCardName(c.defId)} ({c.currentSide})
             </button>
           ))}
         </div>
         <button onClick={() => setMode('choose')} className="text-xs mt-2 underline" style={{ color: 'var(--color-text-muted)' }}>
-          Back
+          {t('back')}
         </button>
       </div>
     );

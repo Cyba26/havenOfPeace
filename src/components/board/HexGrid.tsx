@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import type { AxialCoord, HexMap } from '@/types/hex';
-import type { MonsterInstance } from '@/types/monsters';
+import type { MonsterInstance, MonsterDef } from '@/types/monsters';
 import type { ConditionType } from '@/types/cards';
 import { hexToPixel, hexKey } from '@/engine/hex';
 import { HexTile } from './HexTile';
@@ -15,6 +15,7 @@ interface HexGridProps {
   characterMaxHP: number;
   characterConditions?: ConditionType[];
   monsters: Map<string, MonsterInstance>;
+  monsterDefs?: Record<string, MonsterDef>;
   reachableHexes: Set<string> | null;
   validAttackTargets: string[] | null;
   onHexClick?: (coord: AxialCoord) => void;
@@ -23,7 +24,7 @@ interface HexGridProps {
 
 export function HexGrid({
   hexMap, hexSize, characterPosition, characterHP, characterMaxHP,
-  characterConditions, monsters, reachableHexes, validAttackTargets,
+  characterConditions, monsters, monsterDefs, reachableHexes, validAttackTargets,
   onHexClick, onMonsterClick,
 }: HexGridProps) {
   const viewBox = useMemo(() => {
@@ -66,6 +67,12 @@ export function HexGrid({
       {/* Layer 2: Monster figures */}
       {aliveMonsters.map(m => {
         const isTarget = validAttackTargets?.includes(m.instanceId) ?? false;
+        const mDef = monsterDefs?.[m.defId];
+        const stats = mDef ? {
+          attack: mDef.baseAttack,
+          move: mDef.baseMove,
+          shield: mDef.shield,
+        } : undefined;
         return (
           <Figure
             key={m.instanceId}
@@ -78,6 +85,7 @@ export function HexGrid({
             conditions={m.conditions}
             isTargetable={isTarget}
             onClick={isTarget ? () => onMonsterClick?.(m.instanceId) : undefined}
+            stats={stats}
           />
         );
       })}
