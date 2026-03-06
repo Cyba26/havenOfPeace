@@ -105,6 +105,14 @@ const CARD_BG_ICON: Record<string, string> = {
   attack: 'attack', move: 'move', heal: 'heal', shield: 'shield', retaliate: 'retaliate',
 };
 
+const CARD_TYPE_COLOR: Record<string, string> = {
+  attack: '#c44a2a',
+  move: '#4a7acc',
+  heal: '#3a9e3a',
+  shield: '#4a9eff',
+  retaliate: '#cc6a2a',
+};
+
 export function CardFan({
   cardDefs, cardStates, selectedCards, initiativeCard,
   onSelectCard, onDeselectCard, onSetInitiative,
@@ -122,11 +130,11 @@ export function CardFan({
   }
 
   const count = handCards.length;
-  const maxSpread = 50;
+  const maxSpread = 60;
   const spreadAngle = Math.min(maxSpread, count * 7);
   const selectionFull = selectedCards?.[0] && selectedCards?.[1];
   const hoveredIndex = hoveredId ? handCards.findIndex(c => c.defId === hoveredId) : -1;
-  const spacing = count <= 6 ? 85 : Math.max(60, 500 / count);
+  const spacing = count <= 6 ? 100 : Math.max(75, 600 / count);
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -224,10 +232,16 @@ export function CardFan({
 
                 {/* Header */}
                 <div className="flex justify-between items-center relative">
-                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-                    {def.name}
-                  </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: CARD_TYPE_COLOR[mainAction] ?? '#666' }}>
+                      <ActionIcon icon={bgIcon as any} size={11} color="white" />
+                    </div>
+                    <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+                      {def.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {isInit && (
                       <span className="text-[8px] px-1 rounded font-bold" style={{ background: 'var(--color-gold)', color: 'var(--color-bg-primary)' }}>
                         INIT

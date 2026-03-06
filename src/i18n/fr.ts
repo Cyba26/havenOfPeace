@@ -183,6 +183,13 @@ const fr: Record<string, string> = {
   // ─── Modifier Popup ──────────────────────────────────
   modifier: 'Modificateur',
 
+  // ─── Terrain Tooltips ──────────────────────────────
+  'terrain.obstacle': 'Obstacle : infranchissable',
+  'terrain.hazard': 'Piège : {damage} dégâts',
+  'terrain.difficult': 'Terrain difficile : coûte 2 déplacements',
+  'terrain.pressure_plate': 'Plaque de pression',
+  'terrain.objective': 'Objectif',
+
   // ─── Monster Step Phase ──────────────────────────────
   monster_action_preview: 'Action du monstre',
   monster_step_execute: 'Exécuter',

@@ -35,7 +35,7 @@ export function MonsterPanel({ monsters, monsterDefs }: MonsterPanelProps) {
       {/* Panel */}
       {open && (
         <div
-          className="absolute top-full right-0 mt-1 rounded-lg p-3 w-72 max-h-80 overflow-y-auto"
+          className="absolute top-0 left-full ml-2 rounded-lg p-3 w-72 max-h-80 overflow-y-auto"
           style={{
             background: 'var(--color-bg-secondary)',
             border: '1px solid var(--color-gold-dim)',

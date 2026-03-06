@@ -27,9 +27,10 @@ interface HexTileProps {
   hexSize: number;
   isReachable: boolean;
   onClick?: (coord: AxialCoord) => void;
+  tooltip?: string;
 }
 
-export function HexTile({ coord, terrain, hexSize, isReachable, onClick }: HexTileProps) {
+export function HexTile({ coord, terrain, hexSize, isReachable, onClick, tooltip }: HexTileProps) {
   const pixel = hexToPixel(coord, hexSize);
   const points = hexPolygonPoints(pixel, hexSize * 0.95);
 
@@ -41,6 +42,7 @@ export function HexTile({ coord, terrain, hexSize, isReachable, onClick }: HexTi
       className={`hex-tile ${isReachable ? 'hex-reachable' : ''}`}
       onClick={() => onClick?.(coord)}
     >
+      {tooltip && <title>{tooltip}</title>}
       <polygon
         points={points}
         fill={fill}

@@ -123,7 +123,7 @@ export default function GamePage() {
   return (
     <div className="h-screen flex overflow-hidden">
       {/* ─── Left Panel ─── */}
-      <div className="flex flex-col items-center py-3 px-2" style={{ zIndex: 60 }}>
+      <div className="flex flex-col items-center justify-center py-3 px-2" style={{ zIndex: 60 }}>
         <StatusBar
           round={round}
           phase={phase}
@@ -141,7 +141,9 @@ export default function GamePage() {
           <div style={{ borderTop: '1px solid var(--color-bg-tertiary)' }} />
           <div className="flex flex-col gap-1.5 w-full">
             {/* Monster panel */}
-            <MonsterPanel monsters={monsters} monsterDefs={MONSTER_DEFS} />
+            <div className="relative">
+              <MonsterPanel monsters={monsters} monsterDefs={MONSTER_DEFS} />
+            </div>
 
             {/* Inventory toggle */}
             {character.items.length > 0 && (
@@ -206,10 +208,10 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* ─── Inventory overlay (top right) ─── */}
+        {/* ─── Inventory overlay (top left of main area) ─── */}
         {showInventory && (
           <div
-            className="absolute top-2 right-2 w-72 rounded-lg p-3 overflow-y-auto"
+            className="absolute top-2 left-2 w-72 rounded-lg p-3 overflow-y-auto"
             style={{
               background: 'var(--color-bg-secondary)',
               border: '1px solid var(--color-gold-dim)',

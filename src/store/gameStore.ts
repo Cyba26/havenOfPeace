@@ -390,8 +390,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   chooseBottomCard: (defId: string) => {
     const { character } = get();
-    if (character.topCardId === defId) return;
-    set({ character: { ...character, bottomCardId: defId } });
+    set({
+      character: {
+        ...character,
+        bottomCardId: defId,
+        topCardId: character.topCardId === defId ? null : character.topCardId,
+      },
+    });
   },
 
   useDefaultAction: (half: 'top' | 'bottom') => {

@@ -80,8 +80,6 @@ export function CardSelector({
           const sideData = cs.currentSide === 'A' ? def.sideA : def.sideB;
           const isTopAssigned = topCardId === defId;
           const isBottomAssigned = bottomCardId === defId;
-          const isTopBlocked = bottomCardId === defId; // can't use same card for both
-          const isBottomBlocked = topCardId === defId;
 
           return (
             <div key={defId} style={{ width: '220px' }}>
@@ -97,14 +95,12 @@ export function CardSelector({
 
               {/* TOP zone */}
               <div
-                onClick={() => !isTopBlocked && onChooseTop(defId)}
-                className="rounded-t-lg p-3 transition-all"
+                onClick={() => onChooseTop(defId)}
+                className="rounded-t-lg p-3 transition-all cursor-pointer"
                 style={{
                   background: isTopAssigned ? 'rgba(196,165,90,0.15)' : 'var(--color-bg-card)',
                   border: isTopAssigned ? '2px solid var(--color-gold)' : '2px solid var(--color-bg-card-hover)',
                   borderBottom: 'none',
-                  opacity: isTopBlocked ? 0.3 : 1,
-                  cursor: isTopBlocked ? 'not-allowed' : 'pointer',
                 }}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -126,14 +122,12 @@ export function CardSelector({
 
               {/* BOTTOM zone */}
               <div
-                onClick={() => !isBottomBlocked && onChooseBottom(defId)}
-                className="rounded-b-lg p-3 transition-all"
+                onClick={() => onChooseBottom(defId)}
+                className="rounded-b-lg p-3 transition-all cursor-pointer"
                 style={{
                   background: isBottomAssigned ? 'rgba(196,165,90,0.15)' : 'var(--color-bg-card)',
                   border: isBottomAssigned ? '2px solid var(--color-gold)' : '2px solid var(--color-bg-card-hover)',
                   borderTop: 'none',
-                  opacity: isBottomBlocked ? 0.3 : 1,
-                  cursor: isBottomBlocked ? 'not-allowed' : 'pointer',
                 }}
               >
                 <div className="flex items-center justify-between mb-1">
