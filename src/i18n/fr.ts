@@ -168,6 +168,16 @@ const fr: Record<string, string> = {
 
   // ─── Misc ──────────────────────────────────────────────
   no_cards: 'Aucune carte en main',
+  player: 'Joueur',
+  auto_short_rest: 'Pas assez de cartes — repos court automatique.',
+  exhausted: 'Épuisé — pas assez de cartes pour continuer.',
+
+  // ─── Monster Step Phase ──────────────────────────────
+  monster_action_preview: 'Action du monstre',
+  monster_step_execute: 'Exécuter',
+  monster_step_next: 'Monstre suivant',
+  monster_step_finish: 'Terminer le tour',
+  monster_step_result: 'Résultat',
 };
 
 export default fr;

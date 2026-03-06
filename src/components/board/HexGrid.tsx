@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import type { AxialCoord, HexMap } from '@/types/hex';
 import type { MonsterInstance, MonsterDef } from '@/types/monsters';
 import type { ConditionType } from '@/types/cards';
@@ -20,13 +20,24 @@ interface HexGridProps {
   validAttackTargets: string[] | null;
   onHexClick?: (coord: AxialCoord) => void;
   onMonsterClick?: (instanceId: string) => void;
+  attackAnimation?: { from: AxialCoord; to: AxialCoord } | null;
 }
 
 export function HexGrid({
   hexMap, hexSize, characterPosition, characterHP, characterMaxHP,
   characterConditions, monsters, monsterDefs, reachableHexes, validAttackTargets,
-  onHexClick, onMonsterClick,
+  onHexClick, onMonsterClick, attackAnimation,
 }: HexGridProps) {
+  const [showAttackLine, setShowAttackLine] = useState(false);
+
+  useEffect(() => {
+    if (attackAnimation) {
+      setShowAttackLine(true);
+      const timer = setTimeout(() => setShowAttackLine(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [attackAnimation]);
+
   const viewBox = useMemo(() => {
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
@@ -100,6 +111,22 @@ export function HexGrid({
         maxHp={characterMaxHP}
         conditions={characterConditions}
       />
+
+      {/* Layer 4: Attack animation line */}
+      {showAttackLine && attackAnimation && (() => {
+        const fromPx = hexToPixel(attackAnimation.from, hexSize);
+        const toPx = hexToPixel(attackAnimation.to, hexSize);
+        return (
+          <line
+            x1={fromPx.x} y1={fromPx.y}
+            x2={toPx.x} y2={toPx.y}
+            stroke="var(--color-blood-red-bright)"
+            strokeWidth={3}
+            strokeDasharray="8 4"
+            className="attack-line"
+          />
+        );
+      })()}
     </svg>
   );
 }

@@ -11,6 +11,7 @@ import { ElementTracker } from '@/components/ui/ElementTracker';
 import { DamageNegation } from '@/components/ui/DamageNegation';
 import { Inventory } from '@/components/ui/Inventory';
 import { MonsterPanel } from '@/components/ui/MonsterPanel';
+import { InitiativeTrack } from '@/components/ui/InitiativeTrack';
 import { PhaseAnnouncement } from '@/components/ui/PhaseAnnouncement';
 import { ActionIcon } from '@/components/icons/ActionIcon';
 import { canRest, getDiscardedCards } from '@/engine/cards';
@@ -21,12 +22,13 @@ export default function GamePage() {
   const store = useGameStore();
   const {
     phase, playerTurnSubPhase, round, hexMap, character,
-    monsters, reachableHexes, validAttackTargets, log, infusedElements,
+    monsters, reachableHexes, validAttackTargets, log, infusedElements, turnOrder, currentTurnIndex, attackAnimation,
     pendingDamage, pendingDamageSource, shortRestLostCardId, shortRestRerolled,
+    monsterStepQueue, monsterStepIndex, monsterStepPhase, monsterStepLogs, monsterAccumulatedDamage,
     initScenario, selectCard, deselectCard, setInitiativeCard,
     confirmCardSelection, goBackToCardSelection, chooseTopCard, chooseBottomCard,
     useDefaultAction, confirmActionChoice, selectMoveHex,
-    selectAttackTarget, endPlayerTurn, executeMonsterPhase,
+    selectAttackTarget, endPlayerTurn, executeMonsterPhase, advanceMonsterStep,
     endRound, performShortRestAction, shortRestRerollAction,
     acceptDamage, negateDamageDiscardA, negateDamageDiscard2B, negateDamageLoseCard,
     declareLongRest, confirmLongRestLoss,
@@ -187,8 +189,16 @@ export default function GamePage() {
             validAttackTargets={validAttackTargets}
             onHexClick={playerTurnSubPhase === 'SELECTING_MOVE_HEX' ? selectMoveHex : undefined}
             onMonsterClick={playerTurnSubPhase === 'SELECTING_ATTACK_TARGET' ? selectAttackTarget : undefined}
+            attackAnimation={attackAnimation}
           />
         </div>
+
+        {/* ─── Initiative Track (top center) ─── */}
+        {turnOrder.length > 0 && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2" style={{ zIndex: 55 }}>
+            <InitiativeTrack turnOrder={turnOrder} currentTurnIndex={currentTurnIndex} />
+          </div>
+        )}
 
         {/* ─── Inventory overlay (top right) ─── */}
         {showInventory && (
@@ -320,29 +330,32 @@ export default function GamePage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* ─── Bottom Bar ─── */}
-      <div style={{ background: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-gold-dim)' }}>
-        {/* Card Fan during card selection */}
+        {/* ─── Card Fan floating over the board (no background) ─── */}
         {showCardFan && (
-          <div className="px-4 py-2">
-            <CardFan
-              cardDefs={character.cardDefs}
-              cardStates={character.cards}
-              selectedCards={character.selectedCards}
-              initiativeCard={character.initiativeCard}
-              onSelectCard={selectCard}
-              onDeselectCard={deselectCard}
-              onSetInitiative={setInitiativeCard}
-              onConfirm={confirmCardSelection}
-              canConfirm={canConfirmCards}
-              canRest={canDoRest}
-              onLongRest={declareLongRest}
-            />
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 50 }}>
+            <div className="pointer-events-auto px-4 pb-2">
+              <CardFan
+                cardDefs={character.cardDefs}
+                cardStates={character.cards}
+                selectedCards={character.selectedCards}
+                initiativeCard={character.initiativeCard}
+                onSelectCard={selectCard}
+                onDeselectCard={deselectCard}
+                onSetInitiative={setInitiativeCard}
+                onConfirm={confirmCardSelection}
+                canConfirm={canConfirmCards}
+                canRest={canDoRest}
+                onLongRest={declareLongRest}
+              />
+            </div>
           </div>
         )}
+      </div>
 
+      {/* ─── Bottom Bar (non-card-fan controls only) ─── */}
+      {!showCardFan && (
+      <div style={{ background: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-gold-dim)' }}>
         {/* Player Turn Complete button */}
         {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'TURN_COMPLETE' && pendingDamage === null && (
           <div className="flex justify-center py-3">
@@ -352,8 +365,8 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Monster Turn button */}
-        {phase === 'MONSTER_TURN' && pendingDamage === null && (
+        {/* Monster Turn — step-by-step */}
+        {phase === 'MONSTER_TURN' && pendingDamage === null && monsterStepPhase === null && (
           <div className="flex justify-center items-center gap-2 py-3">
             <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
             <span className="text-xs font-semibold" style={{ color: 'var(--color-blood-red-bright)', fontFamily: 'var(--font-display)' }}>
@@ -363,6 +376,19 @@ export default function GamePage() {
               {t('execute_monster')}
             </button>
           </div>
+        )}
+        {phase === 'MONSTER_TURN' && pendingDamage === null && monsterStepPhase !== null && (
+          <MonsterStepBar
+            monsters={monsters}
+            monsterDefs={MONSTER_DEFS}
+            turnOrder={turnOrder}
+            currentTurnIndex={currentTurnIndex}
+            monsterStepQueue={monsterStepQueue}
+            monsterStepIndex={monsterStepIndex}
+            monsterStepPhase={monsterStepPhase}
+            monsterStepLogs={monsterStepLogs}
+            onAdvance={advanceMonsterStep}
+          />
         )}
 
         {/* End of Round controls */}
@@ -387,6 +413,7 @@ export default function GamePage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -465,6 +492,73 @@ function EndOfRoundBar({ round, character, shortRestLostCardId, shortRestRerolle
       <button onClick={endRound} className="btn-primary px-6 py-1.5 text-sm">
         {t('next_round')}
       </button>
+    </div>
+  );
+}
+
+function MonsterStepBar({ monsters, monsterDefs, turnOrder, currentTurnIndex, monsterStepQueue, monsterStepIndex, monsterStepPhase, monsterStepLogs, onAdvance }: {
+  monsters: Map<string, import('@/types/monsters').MonsterInstance>;
+  monsterDefs: Record<string, import('@/types/monsters').MonsterDef>;
+  turnOrder: import('@/types/game').InitiativeEntry[];
+  currentTurnIndex: number;
+  monsterStepQueue: string[];
+  monsterStepIndex: number;
+  monsterStepPhase: 'preview' | 'resolved';
+  monsterStepLogs: string[];
+  onAdvance: () => void;
+}) {
+  const currentEntry = turnOrder[currentTurnIndex];
+  if (!currentEntry) return null;
+
+  const defId = currentEntry.entityId;
+  const monsterDef = monsterDefs[defId];
+  if (!monsterDef) return null;
+
+  const actionIndex = currentEntry.actionIndex ?? 0;
+  const action = monsterDef.actions[actionIndex];
+  const instanceId = monsterStepQueue[monsterStepIndex];
+  const monster = monsters.get(instanceId);
+  const isLast = monsterStepIndex >= monsterStepQueue.length - 1;
+
+  return (
+    <div className="flex items-center gap-4 py-3 px-4">
+      {/* Monster info */}
+      <div className="flex items-center gap-2">
+        <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
+        <span className="text-xs font-semibold" style={{ color: 'var(--color-blood-red-bright)', fontFamily: 'var(--font-display)' }}>
+          {monsterDef.name} #{monsterStepIndex + 1}/{monsterStepQueue.length}
+          {monster?.isElite ? ` (${t('elite')})` : ''}
+        </span>
+      </div>
+
+      {/* Action preview */}
+      {monsterStepPhase === 'preview' && (
+        <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+            {action.abilities.map((a, i) => (
+              <span key={i} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded" style={{ background: 'var(--color-bg-primary)' }}>
+                <ActionIcon icon={a.type as any} size={10} />
+                {a.value ?? ''}
+              </span>
+            ))}
+          </div>
+          <button onClick={onAdvance} className="btn-secondary text-xs px-4 py-1.5 ml-auto">
+            {t('monster_step_execute')}
+          </button>
+        </div>
+      )}
+
+      {/* Result */}
+      {monsterStepPhase === 'resolved' && (
+        <div className="flex items-center gap-2 flex-1">
+          <div className="flex-1 text-[10px] max-w-sm truncate" style={{ color: 'var(--color-text-secondary)' }}>
+            {monsterStepLogs.length > 0 ? monsterStepLogs[monsterStepLogs.length - 1] : t('monster_step_result')}
+          </div>
+          <button onClick={onAdvance} className="btn-secondary text-xs px-4 py-1.5 ml-auto">
+            {isLast ? t('monster_step_finish') : t('monster_step_next')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

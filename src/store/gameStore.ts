@@ -4,7 +4,7 @@ import type { AxialCoord, HexMap, HexCell } from '@/types/hex';
 import type { AbilityCardDef, CardState, AbilityAction } from '@/types/cards';
 import type { MonsterInstance, MonsterDef } from '@/types/monsters';
 import { hexKey, hexDistance, getReachableHexes } from '@/engine/hex';
-import { initCardStates, playCard, getCardInitiative, getHandCards, performShortRest, shortRestReroll, performLongRestRecovery, negateByDiscardA, negateByDiscard2B, negateByLoseCard } from '@/engine/cards';
+import { initCardStates, playCard, getCardInitiative, getHandCards, getDiscardedCards, performShortRest, shortRestReroll, performLongRestRecovery, negateByDiscardA, negateByDiscard2B, negateByLoseCard } from '@/engine/cards';
 import { checkKillAllObjective } from '@/engine/gameState';
 import { getCharacterBlockedHexes } from '@/engine/movement';
 import { resolveAttack, getValidAttackTargets, applyDamageToMonster, applyDamageToCharacter, determineAdvantage, resolveRetaliate } from '@/engine/combat';
@@ -56,6 +56,14 @@ interface GameStore {
   remainingTargets: number;
   /** Multi-target attack: already-targeted monster IDs */
   selectedTargetIds: string[];
+  /** Attack animation */
+  attackAnimation: { from: AxialCoord; to: AxialCoord } | null;
+  /** Step-by-step monster phase */
+  monsterStepQueue: string[];
+  monsterStepIndex: number;
+  monsterStepPhase: 'preview' | 'resolved' | null;
+  monsterStepLogs: string[];
+  monsterAccumulatedDamage: number;
 
   // ─── Actions ─────────────────────────────────────────
   initScenario: (scenarioId: string) => void;
@@ -72,6 +80,7 @@ interface GameStore {
   selectAttackTarget: (instanceId: string) => void;
   endPlayerTurn: () => void;
   executeMonsterPhase: () => void;
+  advanceMonsterStep: () => void;
   endRound: () => void;
   performShortRestAction: () => void;
   shortRestRerollAction: () => void;
@@ -140,6 +149,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isLongResting: false,
   remainingTargets: 0,
   selectedTargetIds: [],
+  attackAnimation: null,
+  monsterStepQueue: [],
+  monsterStepIndex: 0,
+  monsterStepPhase: null,
+  monsterStepLogs: [],
+  monsterAccumulatedDamage: 0,
 
   addLog: (message: string) => {
     set(state => ({ log: [...state.log, message] }));
@@ -468,6 +483,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const roundBonus = state.monsterRoundBonuses.get(monster.instanceId);
     const monsterShield = defShield + (roundBonus?.shield ?? 0);
 
+    // Set attack animation
+    set({ attackAnimation: { from: state.character.position, to: monster.position } });
+
     // Resolve attack with modifier
     const result = resolveAttack(
       baseAttack,
@@ -632,7 +650,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  // ─── Monster Phase ──────────────────────────────────────────
+  // ─── Monster Phase (step-by-step) ───────────────────────────
 
   executeMonsterPhase: () => {
     const state = get();
@@ -643,69 +661,108 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const monsterDef = state.monsterDefs.get(defId);
     if (!monsterDef) return;
 
-    const actionIndex = currentEntry.actionIndex ?? 0;
-    const action = monsterDef.actions[actionIndex];
-
-    let newMonsters = new Map(state.monsters);
-    let characterHP = state.character.currentHP;
-    const logs: string[] = [];
-    const newRoundBonuses = new Map(state.monsterRoundBonuses);
-
-    // Track shield round bonuses from the rolled action
-    const shieldAbility = action.abilities.find(a => a.type === 'shield');
-    const actionShield = shieldAbility?.value ?? 0;
-
-    // Execute each monster of this type
-    const sortedMonsters = Array.from(newMonsters.values())
+    // Build sorted queue of alive monsters of this type
+    const sortedMonsters = Array.from(state.monsters.values())
       .filter(m => m.defId === defId && m.currentHP > 0)
       .sort((a, b) => {
-        // Sort by instance number
         const numA = parseInt(a.instanceId.split('-').pop() ?? '0');
         const numB = parseInt(b.instanceId.split('-').pop() ?? '0');
         return numA - numB;
       });
 
-    for (const monster of sortedMonsters) {
-      let currentMonster = { ...monster };
+    if (sortedMonsters.length === 0) {
+      // No alive monsters — skip this turn
+      const turnOrder = resolveTurn(state.turnOrder, state.currentTurnIndex);
+      const nextIdx = getNextTurnIndex(turnOrder);
+      if (nextIdx === -1) {
+        set({ turnOrder, phase: 'END_OF_ROUND' as GamePhase, playerTurnSubPhase: null });
+      } else {
+        const isCharNext = turnOrder[nextIdx].entityType === 'character';
+        set({
+          turnOrder,
+          currentTurnIndex: nextIdx,
+          phase: (isCharNext ? (state.isLongResting ? 'RESTING' : 'PLAYER_TURN') : 'MONSTER_TURN') as GamePhase,
+          playerTurnSubPhase: isCharNext && !state.isLongResting ? 'CHOOSING_ACTION' : null,
+        });
+      }
+      return;
+    }
 
-      // Process start-of-turn conditions (wound damage)
+    // Initialize step-by-step mode
+    set({
+      monsterStepQueue: sortedMonsters.map(m => m.instanceId),
+      monsterStepIndex: 0,
+      monsterStepPhase: 'preview',
+      monsterStepLogs: [],
+      monsterAccumulatedDamage: 0,
+    });
+  },
+
+  advanceMonsterStep: () => {
+    const state = get();
+    const { monsterStepQueue, monsterStepIndex, monsterStepPhase, monsterAccumulatedDamage } = state;
+    if (monsterStepPhase === null) return;
+
+    const currentEntry = state.turnOrder[state.currentTurnIndex];
+    if (!currentEntry || currentEntry.entityType !== 'monster_group') return;
+
+    const defId = currentEntry.entityId;
+    const monsterDef = state.monsterDefs.get(defId);
+    if (!monsterDef) return;
+
+    const actionIndex = currentEntry.actionIndex ?? 0;
+    const action = monsterDef.actions[actionIndex];
+    const shieldAbility = action.abilities.find(a => a.type === 'shield');
+    const actionShield = shieldAbility?.value ?? 0;
+
+    if (monsterStepPhase === 'preview') {
+      // Execute the current monster's turn
+      const instanceId = monsterStepQueue[monsterStepIndex];
+      const monster = state.monsters.get(instanceId);
+      if (!monster) { set({ monsterStepPhase: 'resolved', monsterStepLogs: ['Monstre introuvable'] }); return; }
+
+      let currentMonster = { ...monster };
+      const logs: string[] = [];
+      let dmgToChar = 0;
+      const newMonsters = new Map(state.monsters);
+      const newRoundBonuses = new Map(state.monsterRoundBonuses);
+
+      // Start-of-turn conditions
       const startOfTurn = processStartOfTurnConditions(currentMonster.conditions, currentMonster.currentHP);
       if (startOfTurn.logs.length > 0) {
-        for (const l of startOfTurn.logs) logs.push(`${monsterDef.name} ${monster.instanceId}: ${l}`);
+        for (const l of startOfTurn.logs) logs.push(`${monsterDef.name}: ${l}`);
       }
       currentMonster = { ...currentMonster, currentHP: startOfTurn.newHP };
 
-      // Check if wound killed the monster
       if (currentMonster.currentHP <= 0) {
-        newMonsters.set(monster.instanceId, currentMonster);
-        logs.push(`${monsterDef.name} ${monster.instanceId} dies from wound!`);
-        continue;
+        newMonsters.set(instanceId, currentMonster);
+        logs.push(`${monsterDef.name} meurt de ses blessures !`);
+        for (const l of logs) state.addLog(l);
+        set({ monsters: newMonsters, monsterStepPhase: 'resolved', monsterStepLogs: logs });
+        return;
       }
 
+      // Resolve turn
       const result = resolveMonsterTurn(
-        currentMonster,
-        monsterDef,
-        action,
-        state.character.position,
-        state.character.activeShield,
-        state.hexMap,
-        newMonsters,
+        currentMonster, monsterDef, action,
+        state.character.position, state.character.activeShield,
+        state.hexMap, newMonsters,
       );
 
-      // Process end-of-turn condition removal
+      // End-of-turn conditions
       const endOfTurn = processEndOfTurnConditions(result.monster.conditions);
       const finalMonster = { ...result.monster, conditions: endOfTurn.newConditions };
       if (endOfTurn.removed.length > 0) {
-        logs.push(`${monsterDef.name} ${monster.instanceId}: ${endOfTurn.removed.join(', ')} expired`);
+        logs.push(`${monsterDef.name}: ${endOfTurn.removed.join(', ')} expiré`);
       }
 
-      newMonsters.set(monster.instanceId, finalMonster);
+      newMonsters.set(instanceId, finalMonster);
       if (actionShield > 0) {
-        newRoundBonuses.set(monster.instanceId, { shield: actionShield });
+        newRoundBonuses.set(instanceId, { shield: actionShield });
       }
       logs.push(...result.logEntries);
 
-      // Apply ally heal from monster
+      // Ally heal
       if (result.healTarget) {
         const healTarget = newMonsters.get(result.healTarget.instanceId);
         if (healTarget && healTarget.currentHP > 0) {
@@ -714,76 +771,70 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       }
 
+      // Attack damage to character
       if (result.attacked) {
-        characterHP = applyDamageToCharacter(characterHP, result.attackDamage);
+        dmgToChar = result.attackDamage;
+        // Set attack animation
+        set({ attackAnimation: { from: result.newPosition, to: state.character.position } });
 
-        // Character retaliate: if character has active retaliate and monster is in range
-        if (characterHP > 0 && state.character.activeRetaliate > 0) {
+        // Character retaliate
+        if (state.character.activeRetaliate > 0) {
           const retResult = resolveRetaliate(
-            state.character.activeRetaliate,
-            state.character.activeRetaliateRange,
-            state.character.position,
-            result.newPosition,
+            state.character.activeRetaliate, state.character.activeRetaliateRange,
+            state.character.position, result.newPosition,
           );
           if (retResult.inRange && retResult.damage > 0) {
             const retaliatedMonster = applyDamageToMonster(finalMonster, retResult.damage);
-            newMonsters.set(monster.instanceId, retaliatedMonster);
-            logs.push(`Character retaliates for ${retResult.damage} against ${monsterDef.name}!`);
+            newMonsters.set(instanceId, retaliatedMonster);
+            logs.push(`Joueur riposte pour ${retResult.damage} contre ${monsterDef.name} !`);
             if (retaliatedMonster.currentHP <= 0) {
-              logs.push(`${monsterDef.name} ${monster.instanceId} is defeated by retaliate!`);
+              logs.push(`${monsterDef.name} est vaincu par la riposte !`);
             }
           }
         }
       }
-    }
 
-    for (const log of logs) {
-      state.addLog(log);
-    }
+      for (const l of logs) state.addLog(l);
 
-    // Calculate damage taken this phase
-    const damageTaken = state.character.currentHP - characterHP;
-
-    // Advance turn preparation
-    const turnOrder = resolveTurn(state.turnOrder, state.currentTurnIndex);
-    const nextIdx = getNextTurnIndex(turnOrder);
-
-    const isCharNext = nextIdx !== -1 && turnOrder[nextIdx].entityType === 'character';
-    const charPhase = state.isLongResting ? 'RESTING' : 'PLAYER_TURN';
-    const charSubPhase = state.isLongResting ? null : 'CHOOSING_ACTION';
-
-    const afterDamageState: Partial<GameStore> = nextIdx === -1
-      ? {
-          monsters: newMonsters,
-          monsterRoundBonuses: newRoundBonuses,
-          turnOrder,
-          phase: 'END_OF_ROUND' as GamePhase,
-          playerTurnSubPhase: null,
-        }
-      : {
-          monsters: newMonsters,
-          monsterRoundBonuses: newRoundBonuses,
-          turnOrder,
-          currentTurnIndex: nextIdx,
-          phase: (isCharNext ? charPhase : 'MONSTER_TURN') as GamePhase,
-          playerTurnSubPhase: isCharNext ? charSubPhase : null,
-        };
-
-    if (damageTaken > 0) {
-      // Defer damage — let player choose to negate
       set({
         monsters: newMonsters,
         monsterRoundBonuses: newRoundBonuses,
-        pendingDamage: damageTaken,
-        pendingDamageSource: 'Monster attacks',
-        afterDamageState,
+        monsterStepPhase: 'resolved',
+        monsterStepLogs: logs,
+        monsterAccumulatedDamage: monsterAccumulatedDamage + dmgToChar,
       });
-    } else {
-      // No damage — proceed directly
-      set({
-        ...afterDamageState,
-        character: { ...state.character, currentHP: characterHP },
-      });
+    } else if (monsterStepPhase === 'resolved') {
+      // Move to next monster or finalize
+      const nextIndex = monsterStepIndex + 1;
+      if (nextIndex < monsterStepQueue.length) {
+        set({ monsterStepIndex: nextIndex, monsterStepPhase: 'preview', monsterStepLogs: [] });
+      } else {
+        // All monsters processed — finalize
+        const totalDamage = get().monsterAccumulatedDamage;
+        const turnOrder = resolveTurn(state.turnOrder, state.currentTurnIndex);
+        const nextIdx = getNextTurnIndex(turnOrder);
+        const isCharNext = nextIdx !== -1 && turnOrder[nextIdx].entityType === 'character';
+        const charPhase = state.isLongResting ? 'RESTING' : 'PLAYER_TURN';
+        const charSubPhase = state.isLongResting ? null : 'CHOOSING_ACTION';
+
+        const resetStep = { monsterStepQueue: [] as string[], monsterStepIndex: 0, monsterStepPhase: null as 'preview' | 'resolved' | null, monsterStepLogs: [] as string[], monsterAccumulatedDamage: 0 };
+
+        const afterDamageState: Partial<GameStore> = nextIdx === -1
+          ? { ...resetStep, turnOrder, phase: 'END_OF_ROUND' as GamePhase, playerTurnSubPhase: null }
+          : { ...resetStep, turnOrder, currentTurnIndex: nextIdx, phase: (isCharNext ? charPhase : 'MONSTER_TURN') as GamePhase, playerTurnSubPhase: isCharNext ? charSubPhase : null };
+
+        if (totalDamage > 0) {
+          const characterHP = applyDamageToCharacter(state.character.currentHP, totalDamage);
+          set({
+            ...resetStep,
+            pendingDamage: totalDamage,
+            pendingDamageSource: `Attaques des monstres`,
+            afterDamageState,
+          });
+        } else {
+          set({ ...afterDamageState });
+        }
+      }
     }
   },
 
@@ -794,11 +845,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newRound = state.round + 1;
 
     // Check if character can play (has at least 2 cards in hand)
-    const handCards = getHandCards(state.character.cards);
+    let cards = state.character.cards;
+    const handCards = getHandCards(cards);
     if (handCards.length < 2) {
-      set({ phase: 'SCENARIO_FAILED', playerTurnSubPhase: null });
-      get().addLog('Exhausted — not enough cards to continue.');
-      return;
+      const discarded = getDiscardedCards(cards);
+      if (discarded.length > 0) {
+        // Force short rest: recover discards, lose one randomly
+        const restResult = performShortRest(cards);
+        cards = restResult.cards;
+        get().addLog('Pas assez de cartes — repos court automatique.');
+        if (restResult.lostCardId) {
+          const lostName = state.character.cardDefs.find(d => d.id === restResult.lostCardId)?.name ?? restResult.lostCardId;
+          get().addLog(`Carte perdue : ${lostName}`);
+        }
+        const handAfterRest = getHandCards(cards);
+        if (handAfterRest.length < 2) {
+          set({ phase: 'SCENARIO_FAILED', playerTurnSubPhase: null, character: { ...state.character, cards } });
+          get().addLog('Épuisé — pas assez de cartes pour continuer.');
+          return;
+        }
+      } else {
+        set({ phase: 'SCENARIO_FAILED', playerTurnSubPhase: null });
+        get().addLog('Épuisé — pas assez de cartes pour continuer.');
+        return;
+      }
     }
 
     set({
@@ -815,8 +885,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       shortRestRerolled: false,
       remainingTargets: 0,
       selectedTargetIds: [],
+      attackAnimation: null,
+      monsterStepQueue: [],
+      monsterStepIndex: 0,
+      monsterStepPhase: null,
+      monsterStepLogs: [],
+      monsterAccumulatedDamage: 0,
       character: {
         ...state.character,
+        cards,
         selectedCards: null,
         initiativeCard: null,
         topCardId: null,
@@ -828,7 +905,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         activeRetaliateRange: 1,
       },
     });
-    get().addLog(`Round ${newRound} begins.`);
+    get().addLog(`Manche ${newRound} commence.`);
   },
 
   // ─── Damage Negation ────────────────────────────────────────
@@ -1099,6 +1176,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isLongResting: false,
       remainingTargets: 0,
       selectedTargetIds: [],
+      attackAnimation: null,
+      monsterStepQueue: [],
+      monsterStepIndex: 0,
+      monsterStepPhase: null,
+      monsterStepLogs: [],
+      monsterAccumulatedDamage: 0,
     });
   },
 }));

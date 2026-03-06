@@ -61,9 +61,12 @@ export function Figure({ coord, hexSize, type, label, hp, maxHp, conditions, isT
   return (
     <g
       className={`figure-token ${isTargetable ? 'figure-targetable' : ''}`}
-      style={{ color }}
+      style={{
+        color,
+        transform: `translate(${pixel.x}px, ${pixel.y}px)`,
+        transition: 'transform 0.5s ease-in-out',
+      }}
       onClick={onClick}
-      transform={`translate(${pixel.x}, ${pixel.y})`}
     >
       {/* Shadow */}
       <ellipse cx={0} cy={3} rx={radius * 0.9} ry={radius * 0.3} fill="rgba(0,0,0,0.4)" />

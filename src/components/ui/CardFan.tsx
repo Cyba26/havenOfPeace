@@ -125,11 +125,30 @@ export function CardFan({
   const maxSpread = 50;
   const spreadAngle = Math.min(maxSpread, count * 7);
   const selectionFull = selectedCards?.[0] && selectedCards?.[1];
+  const hoveredIndex = hoveredId ? handCards.findIndex(c => c.defId === hoveredId) : -1;
+  const spacing = count <= 6 ? 85 : Math.max(60, 500 / count);
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2">
+      {/* Confirm / Rest buttons ABOVE cards */}
+      <div className="flex gap-3 items-center" style={{ minHeight: '36px' }}>
+        {onConfirm && canConfirm && (
+          <button onClick={onConfirm} className="btn-primary px-8 py-2 text-sm">
+            {t('confirm_selection')}
+          </button>
+        )}
+        {canRest && onLongRest && (
+          <button onClick={onLongRest} className="btn-secondary text-xs px-4 py-2">
+            <span className="flex items-center gap-1">
+              <ActionIcon icon="heal" size={12} color="var(--color-health-green-bright)" />
+              {t('long_rest')}
+            </span>
+          </button>
+        )}
+      </div>
+
       {/* Card fan */}
-      <div className="relative flex justify-center items-end" style={{ minHeight: '320px', perspective: '800px' }}>
+      <div className="relative flex justify-center items-end" style={{ minHeight: '280px', perspective: '800px' }}>
         {handCards.map((cs, i) => {
           const def = cardDefs.find(d => d.id === cs.defId);
           if (!def) return null;
@@ -146,11 +165,19 @@ export function CardFan({
           const centerIndex = (count - 1) / 2;
           const offset = i - centerIndex;
           const angle = (spreadAngle / Math.max(count - 1, 1)) * offset;
-          const translateX = offset * 85;
+          const baseX = offset * spacing;
           const translateY = Math.abs(offset) * 10;
 
+          // Push adjacent cards apart on hover
+          let pushOffset = 0;
+          if (hoveredIndex !== -1 && i !== hoveredIndex) {
+            if (i < hoveredIndex) pushOffset = -30;
+            if (i > hoveredIndex) pushOffset = 30;
+          }
+          const translateX = baseX + pushOffset;
+
           const transform = isHovered
-            ? `translateX(${translateX}px) translateY(-50px) rotate(0deg) scale(1.08)`
+            ? `translateX(${baseX}px) translateY(-50px) rotate(0deg) scale(1.08)`
             : isSelected
             ? `translateX(${translateX}px) translateY(${translateY - 25}px) rotate(${angle}deg)`
             : `translateX(${translateX}px) translateY(${translateY}px) rotate(${angle}deg)`;
@@ -257,26 +284,6 @@ export function CardFan({
         })}
       </div>
 
-      {/* Confirm / Rest buttons near cards */}
-      <div className="flex gap-3 items-center">
-        {onConfirm && (
-          <button
-            onClick={onConfirm}
-            disabled={!canConfirm}
-            className="btn-primary px-8 py-2 text-sm"
-          >
-            {t('confirm_selection')}
-          </button>
-        )}
-        {canRest && onLongRest && (
-          <button onClick={onLongRest} className="btn-secondary text-xs px-4 py-2">
-            <span className="flex items-center gap-1">
-              <ActionIcon icon="heal" size={12} color="var(--color-health-green-bright)" />
-              {t('long_rest')}
-            </span>
-          </button>
-        )}
-      </div>
     </div>
   );
 }
