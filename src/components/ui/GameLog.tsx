@@ -6,14 +6,16 @@ interface GameLogProps {
 }
 
 export function GameLog({ entries }: GameLogProps) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = containerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [entries.length]);
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col gap-0 overflow-y-auto text-xs"
       style={{ maxHeight: '200px', background: 'var(--color-bg-primary)', padding: '0.5rem' }}
     >
@@ -25,7 +27,6 @@ export function GameLog({ entries }: GameLogProps) {
           {entry}
         </div>
       ))}
-      <div ref={endRef} />
     </div>
   );
 }

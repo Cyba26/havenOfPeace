@@ -21,7 +21,7 @@ interface ElementTrackerProps {
 
 export function ElementTracker({ infusedElements }: ElementTrackerProps) {
   return (
-    <div className="flex gap-1.5 items-center">
+    <div className="flex gap-1.5 items-center flex-wrap justify-center">
       {ALL_ELEMENTS.map(el => {
         const isActive = infusedElements.has(el);
         return (

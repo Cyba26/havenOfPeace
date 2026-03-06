@@ -18,40 +18,40 @@ interface CardFanProps {
   onLongRest?: () => void;
 }
 
-function ActionSummary({ action, size = 13 }: { action: AbilityAction; size?: number }) {
+function ActionSummary({ action, size = 18 }: { action: AbilityAction; size?: number }) {
   const s = size;
   const sSmall = Math.round(s * 0.85);
   switch (action.type) {
     case 'attack':
       return (
-        <span className="flex items-center gap-0.5">
+        <span className="flex items-center gap-1">
           <ActionIcon icon="attack" size={s} />
           <span className="font-bold">{action.value}</span>
           {action.range && <><ActionIcon icon="range" size={sSmall} /><span>{action.range}</span></>}
-          {action.target && action.target > 1 && <span className="text-[9px] opacity-70">x{action.target}</span>}
+          {action.target && action.target > 1 && <span className="text-[11px] opacity-70">x{action.target}</span>}
           {action.piercing && <><ActionIcon icon="pierce" size={sSmall} /><span>{action.piercing}</span></>}
         </span>
       );
     case 'move':
       return (
-        <span className="flex items-center gap-0.5">
+        <span className="flex items-center gap-1">
           <ActionIcon icon="move" size={s} />
           <span className="font-bold">{action.value}</span>
           {action.jump && <ActionIcon icon="jump" size={sSmall} />}
         </span>
       );
     case 'heal':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon="heal" size={s} color="#3a9e3a" /><span className="font-bold">{action.value}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon="heal" size={s} color="#3a9e3a" /><span className="font-bold">{action.value}</span></span>;
     case 'shield':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon="shield" size={s} color="#4a9eff" /><span className="font-bold">{action.value}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon="shield" size={s} color="#4a9eff" /><span className="font-bold">{action.value}</span></span>;
     case 'push':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon="push" size={sSmall} /><span>{action.value}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon="push" size={sSmall} /><span>{action.value}</span></span>;
     case 'pull':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon="pull" size={sSmall} /><span>{action.value}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon="pull" size={sSmall} /><span>{action.value}</span></span>;
     case 'retaliate':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon="retaliate" size={s} /><span className="font-bold">{action.value}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon="retaliate" size={s} /><span className="font-bold">{action.value}</span></span>;
     case 'condition':
-      return <span className="flex items-center gap-0.5"><ActionIcon icon={action.condition ?? 'wound'} size={sSmall} /><span>{t(`condition.${action.condition}`)}</span></span>;
+      return <span className="flex items-center gap-1"><ActionIcon icon={action.condition ?? 'wound'} size={sSmall} /><span>{t(`condition.${action.condition}`)}</span></span>;
     default:
       return <span>{action.type} {action.value}</span>;
   }
@@ -63,7 +63,7 @@ function ActionsRow({ actions, isLost }: { actions: AbilityAction[]; isLost: boo
       {actions.map((a, i) => (
         <ActionSummary key={i} action={a} />
       ))}
-      {isLost && <span className="text-[9px] font-bold" style={{ color: 'var(--color-blood-red-bright)' }}>PERDU</span>}
+      {isLost && <span className="text-[10px] font-bold" style={{ color: 'var(--color-blood-red-bright)' }}>PERDU</span>}
     </div>
   );
 }
@@ -187,7 +187,7 @@ export function CardFan({
               key={cs.defId}
               className="absolute cursor-pointer"
               style={{
-                width: '170px',
+                width: '190px',
                 transform,
                 transformOrigin: 'bottom center',
                 transition: 'transform 0.25s ease, box-shadow 0.2s ease',
@@ -246,8 +246,8 @@ export function CardFan({
                 </div>
 
                 {/* Top */}
-                <div className="text-[11px] relative" style={{ borderTop: '1px solid var(--color-gold-dim)', paddingTop: '4px' }}>
-                  <span className="uppercase tracking-wider block mb-0.5" style={{ color: 'var(--color-text-muted)', fontSize: '8px' }}>{t('top')}</span>
+                <div className="text-[13px] relative" style={{ borderTop: '1px solid var(--color-gold-dim)', paddingTop: '4px' }}>
+                  <span className="uppercase tracking-wider block mb-0.5" style={{ color: 'var(--color-text-muted)', fontSize: '9px' }}>{t('top')}</span>
                   <ActionsRow actions={sideData.top.actions} isLost={sideData.top.isLost} />
                 </div>
 
@@ -255,8 +255,8 @@ export function CardFan({
                 <div style={{ borderTop: '1px dashed var(--color-text-muted)' }} />
 
                 {/* Bottom */}
-                <div className="text-[11px] relative">
-                  <span className="uppercase tracking-wider block mb-0.5" style={{ color: 'var(--color-text-muted)', fontSize: '8px' }}>{t('bottom')}</span>
+                <div className="text-[13px] relative">
+                  <span className="uppercase tracking-wider block mb-0.5" style={{ color: 'var(--color-text-muted)', fontSize: '9px' }}>{t('bottom')}</span>
                   <ActionsRow actions={sideData.bottom.actions} isLost={sideData.bottom.isLost} />
                 </div>
 

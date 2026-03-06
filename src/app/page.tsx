@@ -121,62 +121,66 @@ export default function GamePage() {
   const isPlayerTurnActive = phase === 'PLAYER_TURN';
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* ─── Top Bar ─── */}
-      <StatusBar
-        round={round}
-        phase={phase}
-        hp={character.currentHP}
-        maxHP={character.maxHP}
-        handCount={handCount}
-        discardCount={discardCount}
-        lostCount={lostCount}
-      >
-        <ElementTracker infusedElements={infusedElements} />
+    <div className="h-screen flex overflow-hidden">
+      {/* ─── Left Panel ─── */}
+      <div className="flex flex-col items-center py-3 px-2" style={{ zIndex: 60 }}>
+        <StatusBar
+          round={round}
+          phase={phase}
+          hp={character.currentHP}
+          maxHP={character.maxHP}
+          handCount={handCount}
+          discardCount={discardCount}
+          lostCount={lostCount}
+        >
+          {/* Elements */}
+          <div style={{ borderTop: '1px solid var(--color-bg-tertiary)' }} />
+          <ElementTracker infusedElements={infusedElements} />
 
-        {/* Toolbar buttons */}
-        <div className="flex items-center gap-1.5 ml-auto">
-          {/* Monster panel */}
-          <div className="relative">
+          {/* Toolbar buttons */}
+          <div style={{ borderTop: '1px solid var(--color-bg-tertiary)' }} />
+          <div className="flex flex-col gap-1.5 w-full">
+            {/* Monster panel */}
             <MonsterPanel monsters={monsters} monsterDefs={MONSTER_DEFS} />
-          </div>
 
-          {/* Inventory toggle */}
-          {character.items.length > 0 && (
+            {/* Inventory toggle */}
+            {character.items.length > 0 && (
+              <button
+                onClick={() => setShowInventory(!showInventory)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all w-full"
+                style={{
+                  background: showInventory ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+                  border: '1px solid var(--color-gold-dim)',
+                  color: showInventory ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                }}
+              >
+                <ActionIcon icon="loot" size={12} />
+                {t('items')}
+              </button>
+            )}
+
+            {/* Log toggle */}
             <button
-              onClick={() => setShowInventory(!showInventory)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              onClick={() => setShowLog(!showLog)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all w-full"
               style={{
-                background: showInventory ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+                background: showLog ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
                 border: '1px solid var(--color-gold-dim)',
-                color: showInventory ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                color: showLog ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
               }}
             >
-              <ActionIcon icon="loot" size={12} />
-              {t('items')}
+              {t('battle_log')}
             </button>
-          )}
-
-          {/* Log toggle */}
-          <button
-            onClick={() => setShowLog(!showLog)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{
-              background: showLog ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-              border: '1px solid var(--color-gold-dim)',
-              color: showLog ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-            }}
-          >
-            {t('battle_log')}
-          </button>
-        </div>
-      </StatusBar>
-
-      <PhaseAnnouncement phase={phase} />
+          </div>
+        </StatusBar>
+      </div>
 
       {/* ─── Main Area ─── */}
-      <div className="flex-1 relative min-h-0">
-        {/* Hex Grid — full width */}
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        <PhaseAnnouncement phase={phase} />
+
+        <div className="flex-1 relative min-h-0">
+        {/* Hex Grid */}
         <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: showCardFan ? '240px' : '0' }}>
           <HexGrid
             hexMap={hexMap}
@@ -423,6 +427,7 @@ export default function GamePage() {
         )}
       </div>
       )}
+      </div>{/* end Main Area */}
     </div>
   );
 }

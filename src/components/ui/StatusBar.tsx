@@ -21,26 +21,56 @@ export function StatusBar({ round, phase, hp, maxHP, handCount, discardCount, lo
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-2 text-xs"
-      style={{ background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-gold-dim)' }}
+      className="flex flex-col gap-3 p-3 rounded-lg"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-gold-dim)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+        width: '160px',
+      }}
     >
-      <div style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-gold)' }} className="font-semibold">
-        {t('round')} {round}
+      {/* Round */}
+      <div className="text-center" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-gold)' }}>
+        <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{t('round')}</div>
+        <div className="text-2xl font-bold">{round}</div>
       </div>
-      <div className="px-2 py-0.5 rounded" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
+
+      {/* Phase */}
+      <div className="text-center px-1.5 py-1 rounded text-[10px] font-semibold" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
         {phaseLabel}
       </div>
-      <div className="flex items-center gap-1.5">
-        <span style={{ color: hpColor }} className="font-bold">{hp}/{maxHP} {t('hp')}</span>
-        <div className="w-16 h-2 rounded-full" style={{ background: 'var(--color-bg-primary)' }}>
+
+      {/* HP */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{t('hp')}</span>
+          <span style={{ color: hpColor }} className="text-sm font-bold">{hp}/{maxHP}</span>
+        </div>
+        <div className="w-full h-2.5 rounded-full" style={{ background: 'var(--color-bg-primary)' }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${hpPercent * 100}%`, background: hpColor }} />
         </div>
       </div>
-      <div className="flex gap-2" style={{ color: 'var(--color-text-secondary)' }}>
-        <span>{t('hand')}: {handCount}</span>
-        <span>{t('discard')}: {discardCount}</span>
-        <span>{t('lost')}: {lostCount}</span>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--color-bg-tertiary)' }} />
+
+      {/* Card counts */}
+      <div className="flex flex-col gap-1 text-xs">
+        <div className="flex justify-between">
+          <span style={{ color: 'var(--color-text-muted)' }}>{t('hand')}</span>
+          <span style={{ color: 'var(--color-text-primary)' }} className="font-semibold">{handCount}</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: 'var(--color-text-muted)' }}>{t('discard')}</span>
+          <span style={{ color: 'var(--color-text-secondary)' }} className="font-semibold">{discardCount}</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: 'var(--color-text-muted)' }}>{t('lost')}</span>
+          <span style={{ color: 'var(--color-blood-red-bright)' }} className="font-semibold">{lostCount}</span>
+        </div>
       </div>
+
+      {/* Children (ElementTracker, buttons) */}
       {children}
     </div>
   );
