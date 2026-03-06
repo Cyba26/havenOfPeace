@@ -63,6 +63,7 @@ interface GameStore {
   deselectCard: (defId: string) => void;
   setInitiativeCard: (defId: string) => void;
   confirmCardSelection: () => void;
+  goBackToCardSelection: () => void;
   chooseTopCard: (defId: string) => void;
   chooseBottomCard: (defId: string) => void;
   useDefaultAction: (half: 'top' | 'bottom') => void;
@@ -333,6 +334,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     get().addLog(`Initiative: ${turnOrder.map(e => `${e.entityId}(${e.initiative})`).join(', ')}`);
+  },
+
+  goBackToCardSelection: () => {
+    const { character } = get();
+    set({
+      phase: 'CARD_SELECTION',
+      playerTurnSubPhase: null,
+      turnOrder: [],
+      currentTurnIndex: 0,
+      character: {
+        ...character,
+        topCardId: null,
+        bottomCardId: null,
+        executedTop: false,
+        executedBottom: false,
+      },
+    });
   },
 
   // ─── Action Choice ──────────────────────────────────────────

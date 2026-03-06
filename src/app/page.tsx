@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { HexGrid } from '@/components/board/HexGrid';
 import { CardFan } from '@/components/ui/CardFan';
@@ -10,6 +10,7 @@ import { StatusBar } from '@/components/ui/StatusBar';
 import { ElementTracker } from '@/components/ui/ElementTracker';
 import { DamageNegation } from '@/components/ui/DamageNegation';
 import { Inventory } from '@/components/ui/Inventory';
+import { MonsterPanel } from '@/components/ui/MonsterPanel';
 import { PhaseAnnouncement } from '@/components/ui/PhaseAnnouncement';
 import { ActionIcon } from '@/components/icons/ActionIcon';
 import { canRest, getDiscardedCards } from '@/engine/cards';
@@ -23,7 +24,7 @@ export default function GamePage() {
     monsters, reachableHexes, validAttackTargets, log, infusedElements,
     pendingDamage, pendingDamageSource, shortRestLostCardId, shortRestRerolled,
     initScenario, selectCard, deselectCard, setInitiativeCard,
-    confirmCardSelection, chooseTopCard, chooseBottomCard,
+    confirmCardSelection, goBackToCardSelection, chooseTopCard, chooseBottomCard,
     useDefaultAction, confirmActionChoice, selectMoveHex,
     selectAttackTarget, endPlayerTurn, executeMonsterPhase,
     endRound, performShortRestAction, shortRestRerollAction,
@@ -31,6 +32,9 @@ export default function GamePage() {
     declareLongRest, confirmLongRestLoss,
     useItem, resetGame,
   } = store;
+
+  const [showInventory, setShowInventory] = useState(false);
+  const [showLog, setShowLog] = useState(false);
 
   const handCount = character.cards.filter(c => c.location === 'hand').length;
   const discardCount = character.cards.filter(c => c.location === 'discard').length;
@@ -104,12 +108,17 @@ export default function GamePage() {
     );
   }
 
-  // ─── Main Game Layout ─────────────────────────────────────────
+  // ─── Main Game Layout (no sidebar) ─────────────────────────────
   const showCardFan = phase === 'CARD_SELECTION' && pendingDamage === null;
-  const showSelectedSummary = (phase === 'PLAYER_TURN' || phase === 'MONSTER_TURN') && character.topCardId && character.bottomCardId;
+  const showActionChoice = phase === 'PLAYER_TURN' && playerTurnSubPhase === 'CHOOSING_ACTION' && character.selectedCards && pendingDamage === null;
+  const showSelectedSummary = (phase === 'PLAYER_TURN' || phase === 'MONSTER_TURN') && character.topCardId && character.bottomCardId && pendingDamage === null;
+  const canConfirmCards = !!(character.selectedCards?.[0] && character.selectedCards?.[1] && character.initiativeCard);
+  const canDoRest = canRest(character.cards);
+  const isPlayerTurnActive = phase === 'PLAYER_TURN';
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* ─── Top Bar ─── */}
       <StatusBar
         round={round}
         phase={phase}
@@ -120,54 +129,137 @@ export default function GamePage() {
         lostCount={lostCount}
       >
         <ElementTracker infusedElements={infusedElements} />
+
+        {/* Toolbar buttons */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {/* Monster panel */}
+          <div className="relative">
+            <MonsterPanel monsters={monsters} monsterDefs={MONSTER_DEFS} />
+          </div>
+
+          {/* Inventory toggle */}
+          {character.items.length > 0 && (
+            <button
+              onClick={() => setShowInventory(!showInventory)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                background: showInventory ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-gold-dim)',
+                color: showInventory ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              <ActionIcon icon="loot" size={12} />
+              {t('items')}
+            </button>
+          )}
+
+          {/* Log toggle */}
+          <button
+            onClick={() => setShowLog(!showLog)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              background: showLog ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+              border: '1px solid var(--color-gold-dim)',
+              color: showLog ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+            }}
+          >
+            {t('battle_log')}
+          </button>
+        </div>
       </StatusBar>
 
       <PhaseAnnouncement phase={phase} />
 
-      <div className="flex-1 flex min-h-0">
-        {/* Left: Game Board */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 flex items-center justify-center p-4 relative">
-            <HexGrid
-              hexMap={hexMap}
-              hexSize={50}
-              characterPosition={character.position}
-              characterHP={character.currentHP}
-              characterMaxHP={character.maxHP}
-              characterConditions={character.conditions}
-              monsters={monsters}
-              monsterDefs={MONSTER_DEFS}
-              reachableHexes={reachableHexes}
-              validAttackTargets={validAttackTargets}
-              onHexClick={playerTurnSubPhase === 'SELECTING_MOVE_HEX' ? selectMoveHex : undefined}
-              onMonsterClick={playerTurnSubPhase === 'SELECTING_ATTACK_TARGET' ? selectAttackTarget : undefined}
-            />
-          </div>
-
-          {/* Card Fan at bottom of board area */}
-          {showCardFan && (
-            <div className="px-4 pb-2">
-              <CardFan
-                cardDefs={character.cardDefs}
-                cardStates={character.cards}
-                selectedCards={character.selectedCards}
-                initiativeCard={character.initiativeCard}
-                onSelectCard={selectCard}
-                onDeselectCard={deselectCard}
-                onSetInitiative={setInitiativeCard}
-              />
-            </div>
-          )}
+      {/* ─── Main Area ─── */}
+      <div className="flex-1 relative min-h-0">
+        {/* Hex Grid — full width */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <HexGrid
+            hexMap={hexMap}
+            hexSize={50}
+            characterPosition={character.position}
+            characterHP={character.currentHP}
+            characterMaxHP={character.maxHP}
+            characterConditions={character.conditions}
+            monsters={monsters}
+            monsterDefs={MONSTER_DEFS}
+            reachableHexes={reachableHexes}
+            validAttackTargets={validAttackTargets}
+            onHexClick={playerTurnSubPhase === 'SELECTING_MOVE_HEX' ? selectMoveHex : undefined}
+            onMonsterClick={playerTurnSubPhase === 'SELECTING_ATTACK_TARGET' ? selectAttackTarget : undefined}
+          />
         </div>
 
-        {/* Right: Controls Panel */}
-        <div
-          className="w-80 flex flex-col border-l overflow-y-auto"
-          style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-gold-dim)' }}
-        >
-          <div className="flex-1 p-3 flex flex-col gap-3">
-            {/* Damage Negation (overlay when pending) */}
-            {pendingDamage !== null && (
+        {/* ─── Inventory overlay (top right) ─── */}
+        {showInventory && (
+          <div
+            className="absolute top-2 right-2 w-72 rounded-lg p-3 overflow-y-auto"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-gold-dim)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              zIndex: 70,
+              maxHeight: '60vh',
+            }}
+          >
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+                {t('items')}
+              </span>
+              <button onClick={() => setShowInventory(false)} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                ✕
+              </button>
+            </div>
+            <Inventory
+              itemDefs={character.itemDefs}
+              items={character.items}
+              onUseItem={useItem}
+              disabled={!isPlayerTurnActive}
+            />
+          </div>
+        )}
+
+        {/* ─── Game Log overlay (top right, below inventory) ─── */}
+        {showLog && (
+          <div
+            className="absolute top-2 left-2 w-80 rounded-lg overflow-hidden"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-gold-dim)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              zIndex: 70,
+              maxHeight: '50vh',
+            }}
+          >
+            <div className="flex justify-between items-center px-3 py-1.5">
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+                {t('battle_log')}
+              </span>
+              <button onClick={() => setShowLog(false)} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                ✕
+              </button>
+            </div>
+            <GameLog entries={log} />
+          </div>
+        )}
+
+        {/* ─── Selected Cards Summary (floating, bottom-left) ─── */}
+        {showSelectedSummary && character.selectedCards && (
+          <div className="absolute bottom-2 left-2" style={{ zIndex: 60 }}>
+            <SelectedCardsSummary
+              selectedCards={character.selectedCards}
+              cardDefs={character.cardDefs}
+              cardStates={character.cards}
+              topCardId={character.topCardId}
+              bottomCardId={character.bottomCardId}
+            />
+          </div>
+        )}
+
+        {/* ─── Damage Negation overlay (centered) ─── */}
+        {pendingDamage !== null && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 90, background: 'rgba(0,0,0,0.5)' }}>
+            <div className="w-80">
               <DamageNegation
                 damage={pendingDamage}
                 source={pendingDamageSource}
@@ -179,281 +271,200 @@ export default function GamePage() {
                 onDiscard2B={negateDamageDiscard2B}
                 onLoseCard={negateDamageLoseCard}
               />
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* Phase-specific controls */}
-            {pendingDamage === null && (
-              <PhaseControls
-                phase={phase}
-                playerTurnSubPhase={playerTurnSubPhase}
-                character={character}
-                round={round}
-                shortRestLostCardId={shortRestLostCardId}
-                shortRestRerolled={shortRestRerolled}
-                confirmCardSelection={confirmCardSelection}
-                chooseTopCard={chooseTopCard}
-                chooseBottomCard={chooseBottomCard}
-                useDefaultAction={useDefaultAction}
-                confirmActionChoice={confirmActionChoice}
-                endPlayerTurn={endPlayerTurn}
-                executeMonsterPhase={executeMonsterPhase}
-                endRound={endRound}
-                performShortRestAction={performShortRestAction}
-                shortRestRerollAction={shortRestRerollAction}
-                declareLongRest={declareLongRest}
-                confirmLongRestLoss={confirmLongRestLoss}
-              />
-            )}
-
-            {/* Selected Cards Summary (during player/monster turn) */}
-            {showSelectedSummary && pendingDamage === null && character.selectedCards && (
-              <SelectedCardsSummary
+        {/* ─── Action Choice overlay (centered) ─── */}
+        {showActionChoice && character.selectedCards && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 80, background: 'rgba(0,0,0,0.4)' }}>
+            <div className="w-96">
+              <CardSelector
                 selectedCards={character.selectedCards}
                 cardDefs={character.cardDefs}
                 cardStates={character.cards}
                 topCardId={character.topCardId}
                 bottomCardId={character.bottomCardId}
+                onChooseTop={chooseTopCard}
+                onChooseBottom={chooseBottomCard}
+                onConfirm={confirmActionChoice}
+                onUseDefaultTop={() => useDefaultAction('top')}
+                onUseDefaultBottom={() => useDefaultAction('bottom')}
+                onGoBack={goBackToCardSelection}
               />
-            )}
-
-            {/* Inventory */}
-            {pendingDamage === null && character.items.length > 0 && (
-              <Inventory
-                itemDefs={character.itemDefs}
-                items={character.items}
-                onUseItem={useItem}
-                disabled={phase !== 'PLAYER_TURN'}
-              />
-            )}
-          </div>
-
-          {/* Game Log */}
-          <div className="border-t" style={{ borderColor: 'var(--color-gold-dim)' }}>
-            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-              {t('battle_log')}
             </div>
-            <GameLog entries={log} />
           </div>
-        </div>
+        )}
+
+        {/* ─── Resting overlay (centered) ─── */}
+        {phase === 'RESTING' && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 80, background: 'rgba(0,0,0,0.4)' }}>
+            <RestingPanel character={character} confirmLongRestLoss={confirmLongRestLoss} />
+          </div>
+        )}
+
+        {/* ─── Player turn action hints (centered top) ─── */}
+        {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'SELECTING_MOVE_HEX' && pendingDamage === null && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-gold-dim)', zIndex: 60 }}>
+            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-gold)' }}>
+              <ActionIcon icon="move" size={14} />
+              {t('select_destination')}
+            </div>
+          </div>
+        )}
+        {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'SELECTING_ATTACK_TARGET' && pendingDamage === null && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-blood-red-bright)', zIndex: 60 }}>
+            <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-blood-red-bright)' }}>
+              <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
+              {t('select_target')}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Bottom Bar ─── */}
+      <div style={{ background: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-gold-dim)' }}>
+        {/* Card Fan during card selection */}
+        {showCardFan && (
+          <div className="px-4 py-2">
+            <CardFan
+              cardDefs={character.cardDefs}
+              cardStates={character.cards}
+              selectedCards={character.selectedCards}
+              initiativeCard={character.initiativeCard}
+              onSelectCard={selectCard}
+              onDeselectCard={deselectCard}
+              onSetInitiative={setInitiativeCard}
+              onConfirm={confirmCardSelection}
+              canConfirm={canConfirmCards}
+              canRest={canDoRest}
+              onLongRest={declareLongRest}
+            />
+          </div>
+        )}
+
+        {/* Player Turn Complete button */}
+        {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'TURN_COMPLETE' && pendingDamage === null && (
+          <div className="flex justify-center py-3">
+            <button onClick={endPlayerTurn} className="btn-primary px-8 py-2 text-sm">
+              {t('end_turn')}
+            </button>
+          </div>
+        )}
+
+        {/* Monster Turn button */}
+        {phase === 'MONSTER_TURN' && pendingDamage === null && (
+          <div className="flex justify-center items-center gap-2 py-3">
+            <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
+            <span className="text-xs font-semibold" style={{ color: 'var(--color-blood-red-bright)', fontFamily: 'var(--font-display)' }}>
+              {t('monster_turn')}
+            </span>
+            <button onClick={executeMonsterPhase} className="btn-secondary px-6 py-1.5 text-sm ml-2">
+              {t('execute_monster')}
+            </button>
+          </div>
+        )}
+
+        {/* End of Round controls */}
+        {phase === 'END_OF_ROUND' && (
+          <EndOfRoundBar
+            round={round}
+            character={character}
+            shortRestLostCardId={shortRestLostCardId}
+            shortRestRerolled={shortRestRerolled}
+            performShortRestAction={performShortRestAction}
+            shortRestRerollAction={shortRestRerollAction}
+            endRound={endRound}
+          />
+        )}
+
+        {/* Executing actions feedback */}
+        {phase === 'PLAYER_TURN' && playerTurnSubPhase !== 'CHOOSING_ACTION' && playerTurnSubPhase !== 'TURN_COMPLETE'
+          && playerTurnSubPhase !== 'SELECTING_MOVE_HEX' && playerTurnSubPhase !== 'SELECTING_ATTACK_TARGET'
+          && pendingDamage === null && (
+          <div className="text-center py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            {t('executing')}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Phase Controls ───────────────────────────────────────────────
+// ─── Sub-components ──────────────────────────────────────────────
 
-interface PhaseControlsProps {
-  phase: string;
-  playerTurnSubPhase: string | null;
+function RestingPanel({ character, confirmLongRestLoss }: {
   character: ReturnType<typeof useGameStore.getState>['character'];
-  round: number;
-  shortRestLostCardId: string | null;
-  shortRestRerolled: boolean;
-  confirmCardSelection: () => void;
-  chooseTopCard: (defId: string) => void;
-  chooseBottomCard: (defId: string) => void;
-  useDefaultAction: (half: 'top' | 'bottom') => void;
-  confirmActionChoice: () => void;
-  endPlayerTurn: () => void;
-  executeMonsterPhase: () => void;
-  endRound: () => void;
-  performShortRestAction: () => void;
-  shortRestRerollAction: () => void;
-  declareLongRest: () => void;
   confirmLongRestLoss: (cardDefId: string) => void;
+}) {
+  const discardedCards = getDiscardedCards(character.cards);
+  const handCards = character.cards.filter(c => c.location === 'hand');
+  const recoveredCards = [...discardedCards, ...handCards];
+
+  return (
+    <div className="w-80 rounded-lg p-4" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+      <div className="text-sm font-semibold mb-2 flex items-center justify-center gap-1.5" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+        <ActionIcon icon="heal" size={16} color="var(--color-health-green-bright)" />
+        {t('long_rest_choose')}
+      </div>
+      <p className="text-xs mb-3 text-center" style={{ color: 'var(--color-text-secondary)' }}>
+        {t('long_rest_desc')}
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {recoveredCards.map(c => {
+          const def = character.cardDefs.find(d => d.id === c.defId);
+          return (
+            <button
+              key={c.defId}
+              onClick={() => confirmLongRestLoss(c.defId)}
+              className="btn-secondary text-xs py-2"
+            >
+              {def?.name ?? c.defId} ({c.currentSide})
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-function PhaseControls({
-  phase, playerTurnSubPhase, character, round,
-  shortRestLostCardId, shortRestRerolled,
-  confirmCardSelection,
-  chooseTopCard, chooseBottomCard, useDefaultAction, confirmActionChoice,
-  endPlayerTurn, executeMonsterPhase, endRound, performShortRestAction,
-  shortRestRerollAction, declareLongRest, confirmLongRestLoss,
-}: PhaseControlsProps) {
+function EndOfRoundBar({ round, character, shortRestLostCardId, shortRestRerolled, performShortRestAction, shortRestRerollAction, endRound }: {
+  round: number;
+  character: ReturnType<typeof useGameStore.getState>['character'];
+  shortRestLostCardId: string | null;
+  shortRestRerolled: boolean;
+  performShortRestAction: () => void;
+  shortRestRerollAction: () => void;
+  endRound: () => void;
+}) {
+  const canDoRest = canRest(character.cards);
 
-  // ─── Card Selection Phase ────
-  if (phase === 'CARD_SELECTION') {
-    const canConfirm = character.selectedCards?.[0] && character.selectedCards?.[1] && character.initiativeCard;
-    const canDoRest = canRest(character.cards);
-
-    return (
-      <>
-        <div className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-          {t('select_cards')}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={confirmCardSelection}
-            disabled={!canConfirm}
-            className="btn-primary flex-1"
-          >
-            {t('confirm_selection')}
-          </button>
-        </div>
-        {canDoRest && (
-          <div className="flex gap-2">
-            <button onClick={declareLongRest} className="btn-secondary text-xs flex-1">
-              {t('long_rest')}
-            </button>
-          </div>
-        )}
-      </>
-    );
-  }
-
-  // ─── Player Turn ────
-  if (phase === 'PLAYER_TURN') {
-    if (playerTurnSubPhase === 'CHOOSING_ACTION' && character.selectedCards) {
-      return (
-        <>
-          <div className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-            {t('assign_actions')}
-          </div>
-          <CardSelector
-            selectedCards={character.selectedCards}
-            cardDefs={character.cardDefs}
-            cardStates={character.cards}
-            topCardId={character.topCardId}
-            bottomCardId={character.bottomCardId}
-            onChooseTop={chooseTopCard}
-            onChooseBottom={chooseBottomCard}
-            onConfirm={confirmActionChoice}
-            onUseDefaultTop={() => useDefaultAction('top')}
-            onUseDefaultBottom={() => useDefaultAction('bottom')}
-          />
-        </>
-      );
-    }
-
-    if (playerTurnSubPhase === 'SELECTING_MOVE_HEX') {
-      return (
-        <div className="text-center py-4">
-          <div className="text-xs font-semibold mb-2 flex items-center justify-center gap-1" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-            <ActionIcon icon="move" size={14} />
-            {t('select_destination')}
-          </div>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('select_destination_hint')}
-          </p>
-        </div>
-      );
-    }
-
-    if (playerTurnSubPhase === 'SELECTING_ATTACK_TARGET') {
-      return (
-        <div className="text-center py-4">
-          <div className="text-xs font-semibold mb-2 flex items-center justify-center gap-1" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-            <ActionIcon icon="attack" size={14} />
-            {t('select_target')}
-          </div>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('select_target_hint')}
-          </p>
-        </div>
-      );
-    }
-
-    if (playerTurnSubPhase === 'TURN_COMPLETE') {
-      return (
-        <div className="text-center py-4">
-          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-            {t('turn_complete')}
-          </div>
-          <button onClick={endPlayerTurn} className="btn-primary">
-            {t('end_turn')}
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
-        <div className="text-xs">{t('executing')}</div>
-      </div>
-    );
-  }
-
-  // ─── Monster Turn ────
-  if (phase === 'MONSTER_TURN') {
-    return (
-      <div className="text-center py-4">
-        <div className="text-xs font-semibold mb-2 flex items-center justify-center gap-1" style={{ color: 'var(--color-blood-red-bright)', fontFamily: 'var(--font-display)' }}>
-          <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
-          {t('monster_turn')}
-        </div>
-        <button onClick={executeMonsterPhase} className="btn-secondary">
-          {t('execute_monster')}
+  return (
+    <div className="flex items-center justify-center gap-4 py-3 px-4">
+      <span className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+        {t('end_of_round')} {round}
+      </span>
+      {canDoRest && !shortRestLostCardId && (
+        <button onClick={performShortRestAction} className="btn-secondary text-xs px-4 py-1.5">
+          {t('short_rest')}
         </button>
-      </div>
-    );
-  }
-
-  // ─── Resting (Long Rest) ────
-  if (phase === 'RESTING') {
-    const discardedCards = getDiscardedCards(character.cards);
-    const handCards = character.cards.filter(c => c.location === 'hand');
-    const recoveredCards = [...discardedCards, ...handCards];
-
-    return (
-      <div className="text-center py-4 flex flex-col gap-3">
-        <div className="text-xs font-semibold flex items-center justify-center gap-1" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-          <ActionIcon icon="heal" size={14} color="var(--color-health-green-bright)" />
-          {t('long_rest_choose')}
-        </div>
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          {t('long_rest_desc')}
-        </p>
-        <div className="flex flex-col gap-1">
-          {recoveredCards.map(c => {
-            const def = character.cardDefs.find(d => d.id === c.defId);
-            return (
-              <button
-                key={c.defId}
-                onClick={() => confirmLongRestLoss(c.defId)}
-                className="btn-secondary text-xs"
-              >
-                {def?.name ?? c.defId} ({c.currentSide})
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // ─── End of Round ────
-  if (phase === 'END_OF_ROUND') {
-    const canDoRest = canRest(character.cards);
-    return (
-      <div className="text-center py-4 flex flex-col gap-3">
-        <div className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-          {t('end_of_round')} {round}
-        </div>
-        {canDoRest && (
-          <button onClick={performShortRestAction} className="btn-secondary text-xs">
-            {t('short_rest')}
+      )}
+      {shortRestLostCardId && !shortRestRerolled && (
+        <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded" style={{ background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)' }}>
+          {t('lost')}: {character.cardDefs.find(d => d.id === shortRestLostCardId)?.name ?? shortRestLostCardId}
+          <button onClick={shortRestRerollAction} className="btn-secondary text-xs px-2 py-0.5">
+            {t('reroll')}
           </button>
-        )}
-        {shortRestLostCardId && !shortRestRerolled && (
-          <div className="text-xs p-2 rounded" style={{ background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)' }}>
-            {t('lost')} : {character.cardDefs.find(d => d.id === shortRestLostCardId)?.name ?? shortRestLostCardId}
-            <button onClick={shortRestRerollAction} className="btn-secondary text-xs ml-2">
-              {t('reroll')}
-            </button>
-          </div>
-        )}
-        {shortRestLostCardId && shortRestRerolled && (
-          <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {t('rerolled')} {character.cardDefs.find(d => d.id === shortRestLostCardId)?.name ?? shortRestLostCardId}
-          </div>
-        )}
-        <button onClick={endRound} className="btn-primary">
-          {t('next_round')}
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+        </div>
+      )}
+      {shortRestLostCardId && shortRestRerolled && (
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {t('rerolled')} {character.cardDefs.find(d => d.id === shortRestLostCardId)?.name ?? shortRestLostCardId}
+        </span>
+      )}
+      <button onClick={endRound} className="btn-primary px-6 py-1.5 text-sm">
+        {t('next_round')}
+      </button>
+    </div>
+  );
 }

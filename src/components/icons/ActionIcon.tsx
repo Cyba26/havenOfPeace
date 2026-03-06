@@ -42,15 +42,21 @@ function getIconPath(icon: IconName): React.ReactNode {
     case 'attack':
       return (
         <>
-          <line x1="6" y1="18" x2="18" y2="6" />
-          <polyline points="14,6 18,6 18,10" />
-          <line x1="4" y1="20" x2="8" y2="16" />
+          {/* Blade */}
+          <path d="M19 3l-7 7" strokeWidth={2.5} />
+          <path d="M15 3h4v4" />
+          {/* Guard */}
+          <line x1="8" y1="13" x2="11" y2="10" strokeWidth={2.5} />
+          {/* Handle */}
+          <line x1="5" y1="19" x2="9" y2="15" strokeWidth={2} />
+          <line x1="3" y1="21" x2="5" y2="19" strokeWidth={3} />
         </>
       );
     // ─── Boot (Move) ────────────────────────────────────────
     case 'move':
       return (
-        <path d="M7 21h10l1-6-3-2V8a2 2 0 0 0-4 0v1L8 11l-2 4z" fill="currentColor" opacity={0.3} stroke="currentColor" />
+        <path d="M8 22h8l2-5-2-2v-3c0-1.5-1-3-2.5-3S11 10.5 11 12v1l-2 2-2 3z"
+          fill="currentColor" opacity={0.25} stroke="currentColor" strokeWidth={1.5} />
       );
     // ─── Shield ─────────────────────────────────────────────
     case 'shield':

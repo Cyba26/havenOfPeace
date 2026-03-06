@@ -15,13 +15,14 @@ interface CardSelectorProps {
   onConfirm: () => void;
   onUseDefaultTop: () => void;
   onUseDefaultBottom: () => void;
+  onGoBack?: () => void;
 }
 
 export function CardSelector({
   selectedCards, cardDefs, cardStates,
   topCardId, bottomCardId,
   onChooseTop, onChooseBottom, onConfirm,
-  onUseDefaultTop, onUseDefaultBottom,
+  onUseDefaultTop, onUseDefaultBottom, onGoBack,
 }: CardSelectorProps) {
   const getName = (defId: string) => {
     const def = cardDefs.find(d => d.id === defId);
@@ -109,12 +110,19 @@ export function CardSelector({
         </div>
       </div>
 
-      {/* Confirm */}
-      {isAssigned && (
-        <button onClick={onConfirm} className="btn-primary w-full">
-          {t('execute_actions')}
-        </button>
-      )}
+      {/* Confirm + Back */}
+      <div className="flex gap-2">
+        {onGoBack && (
+          <button onClick={onGoBack} className="btn-secondary text-xs px-3 py-2">
+            {t('back')}
+          </button>
+        )}
+        {isAssigned && (
+          <button onClick={onConfirm} className="btn-primary flex-1">
+            {t('execute_actions')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
