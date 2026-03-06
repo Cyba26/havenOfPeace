@@ -172,6 +172,17 @@ const fr: Record<string, string> = {
   auto_short_rest: 'Pas assez de cartes — repos court automatique.',
   exhausted: 'Épuisé — pas assez de cartes pour continuer.',
 
+  // ─── Action Order ─────────────────────────────────────
+  execution_order: "Ordre d'exécution",
+  top_first: 'Haut en premier',
+  bottom_first: 'Bas en premier',
+
+  // ─── Card Selector Redesign ──────────────────────────
+  assigned: 'Assigné',
+
+  // ─── Modifier Popup ──────────────────────────────────
+  modifier: 'Modificateur',
+
   // ─── Monster Step Phase ──────────────────────────────
   monster_action_preview: 'Action du monstre',
   monster_step_execute: 'Exécuter',

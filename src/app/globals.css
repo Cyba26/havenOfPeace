@@ -262,6 +262,35 @@ body {
   animation: attack-slash 0.5s ease-out forwards;
 }
 
+/* ─── Modifier card popup ────────────────────────────────────── */
+
+@keyframes modifier-card-in {
+  0% { opacity: 0; transform: scale(0.3) rotateY(90deg); }
+  20% { opacity: 1; transform: scale(1.1) rotateY(0deg); }
+  70% { opacity: 1; transform: scale(1) rotateY(0deg); }
+  100% { opacity: 0; transform: scale(0.9) translateY(-20px); }
+}
+
+.modifier-card-popup {
+  animation: modifier-card-in 1.5s ease-out forwards;
+}
+
+/* ─── Confirm button glow ────────────────────────────────────── */
+
+@keyframes confirm-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--color-gold), 0 0 16px rgba(196, 165, 90, 0.3); }
+  50% { box-shadow: 0 0 16px var(--color-gold-bright), 0 0 32px rgba(196, 165, 90, 0.5); }
+}
+
+.btn-confirm {
+  animation: confirm-pulse 1.5s ease-in-out infinite;
+  font-size: 1rem;
+  padding: 0.75rem 2rem;
+  border: 2px solid var(--color-gold-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ─── Game log ────────────────────────────────────────────────── */
 
 .game-log-entry {

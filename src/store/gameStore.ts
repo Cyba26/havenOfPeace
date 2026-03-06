@@ -56,6 +56,10 @@ interface GameStore {
   remainingTargets: number;
   /** Multi-target attack: already-targeted monster IDs */
   selectedTargetIds: string[];
+  /** Action execution order */
+  actionOrder: 'top_first' | 'bottom_first';
+  /** Modifier popup (transient) */
+  modifierPopup: { value: number; isMiss: boolean; isDouble: boolean } | null;
   /** Attack animation */
   attackAnimation: { from: AxialCoord; to: AxialCoord } | null;
   /** Step-by-step monster phase */
@@ -75,6 +79,7 @@ interface GameStore {
   chooseTopCard: (defId: string) => void;
   chooseBottomCard: (defId: string) => void;
   useDefaultAction: (half: 'top' | 'bottom') => void;
+  setActionOrder: (order: 'top_first' | 'bottom_first') => void;
   confirmActionChoice: () => void;
   selectMoveHex: (coord: AxialCoord) => void;
   selectAttackTarget: (instanceId: string) => void;
@@ -149,6 +154,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isLongResting: false,
   remainingTargets: 0,
   selectedTargetIds: [],
+  actionOrder: 'top_first' as const,
+  modifierPopup: null,
   attackAnimation: null,
   monsterStepQueue: [],
   monsterStepIndex: 0,
@@ -396,6 +403,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
+  setActionOrder: (order) => set({ actionOrder: order }),
+
   confirmActionChoice: () => {
     const { character, hexMap, monsters } = get();
     const { topCardId, bottomCardId, selectedCards } = character;
@@ -425,8 +434,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       bottomActions = side.bottom.actions.length > 0 ? side.bottom.actions : [{ type: 'move', value: 2 }];
     }
 
-    // Queue all actions: top half first, then bottom half
-    const allActions = [...topActions, ...bottomActions];
+    // Queue actions in chosen order
+    const { actionOrder } = get();
+    const allActions = actionOrder === 'top_first'
+      ? [...topActions, ...bottomActions]
+      : [...bottomActions, ...topActions];
     set({
       pendingActions: allActions,
       pendingActionIndex: 0,
@@ -496,6 +508,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       advantage,
       targetPoisoned,
     );
+
+    // Show modifier popup
+    set({ modifierPopup: { value: result.modifier.rawModifier, isMiss: result.modifier.isMiss, isDouble: result.modifier.isDouble } });
+    setTimeout(() => set({ modifierPopup: null }), 1500);
 
     const updatedMonster = applyDamageToMonster(monster, result.damage);
     const newMonsters = new Map(state.monsters);
@@ -1176,6 +1192,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isLongResting: false,
       remainingTargets: 0,
       selectedTargetIds: [],
+      actionOrder: 'top_first' as const,
+      modifierPopup: null,
       attackAnimation: null,
       monsterStepQueue: [],
       monsterStepIndex: 0,

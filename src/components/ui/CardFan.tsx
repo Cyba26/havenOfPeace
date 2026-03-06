@@ -133,7 +133,7 @@ export function CardFan({
       {/* Confirm / Rest buttons ABOVE cards */}
       <div className="flex gap-3 items-center" style={{ minHeight: '36px' }}>
         {onConfirm && canConfirm && (
-          <button onClick={onConfirm} className="btn-primary px-8 py-2 text-sm">
+          <button onClick={onConfirm} className="btn-primary btn-confirm">
             {t('confirm_selection')}
           </button>
         )}
@@ -166,7 +166,7 @@ export function CardFan({
           const offset = i - centerIndex;
           const angle = (spreadAngle / Math.max(count - 1, 1)) * offset;
           const baseX = offset * spacing;
-          const translateY = Math.abs(offset) * 10;
+          const translateY = Math.abs(offset) * 6;
 
           // Push adjacent cards apart on hover
           let pushOffset = 0;
@@ -179,8 +179,8 @@ export function CardFan({
           const transform = isHovered
             ? `translateX(${baseX}px) translateY(-50px) rotate(0deg) scale(1.08)`
             : isSelected
-            ? `translateX(${translateX}px) translateY(${translateY - 25}px) rotate(${angle}deg)`
-            : `translateX(${translateX}px) translateY(${translateY}px) rotate(${angle}deg)`;
+            ? `translateX(${translateX}px) translateY(${translateY - 35}px) rotate(${angle}deg)`
+            : `translateX(${translateX}px) translateY(${translateY - 15}px) rotate(${angle}deg)`;
 
           return (
             <div

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import type { AbilityCardDef, CardState } from '@/types/cards';
+import type { AbilityCardDef, CardState, AbilityAction } from '@/types/cards';
 import { ActionIcon } from '@/components/icons/ActionIcon';
 import { t } from '@/i18n';
 
@@ -10,105 +10,208 @@ interface CardSelectorProps {
   cardStates: CardState[];
   topCardId: string | null;
   bottomCardId: string | null;
+  actionOrder: 'top_first' | 'bottom_first';
   onChooseTop: (defId: string) => void;
   onChooseBottom: (defId: string) => void;
   onConfirm: () => void;
   onUseDefaultTop: () => void;
   onUseDefaultBottom: () => void;
+  onSetActionOrder: (order: 'top_first' | 'bottom_first') => void;
   onGoBack?: () => void;
+}
+
+function ActionSummary({ action }: { action: AbilityAction }) {
+  switch (action.type) {
+    case 'attack':
+      return (
+        <span className="flex items-center gap-0.5">
+          <ActionIcon icon="attack" size={12} />
+          <span className="font-bold">{action.value}</span>
+          {action.range && <><ActionIcon icon="range" size={10} /><span>{action.range}</span></>}
+          {action.target && action.target > 1 && <span className="opacity-70">x{action.target}</span>}
+          {action.piercing && <><ActionIcon icon="pierce" size={10} /><span>{action.piercing}</span></>}
+        </span>
+      );
+    case 'move':
+      return (
+        <span className="flex items-center gap-0.5">
+          <ActionIcon icon="move" size={12} />
+          <span className="font-bold">{action.value}</span>
+          {action.jump && <ActionIcon icon="jump" size={10} />}
+        </span>
+      );
+    case 'heal':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon="heal" size={12} color="#3a9e3a" /><span className="font-bold">{action.value}</span></span>;
+    case 'shield':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon="shield" size={12} color="#4a9eff" /><span className="font-bold">{action.value}</span></span>;
+    case 'push':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon="push" size={10} /><span>{action.value}</span></span>;
+    case 'pull':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon="pull" size={10} /><span>{action.value}</span></span>;
+    case 'retaliate':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon="retaliate" size={12} /><span className="font-bold">{action.value}</span></span>;
+    case 'condition':
+      return <span className="flex items-center gap-0.5"><ActionIcon icon={action.condition ?? 'wound'} size={10} /><span>{t(`condition.${action.condition}`)}</span></span>;
+    default:
+      return <span>{action.type} {action.value}</span>;
+  }
 }
 
 export function CardSelector({
   selectedCards, cardDefs, cardStates,
-  topCardId, bottomCardId,
+  topCardId, bottomCardId, actionOrder,
   onChooseTop, onChooseBottom, onConfirm,
-  onUseDefaultTop, onUseDefaultBottom, onGoBack,
+  onUseDefaultTop, onUseDefaultBottom, onSetActionOrder, onGoBack,
 }: CardSelectorProps) {
-  const getName = (defId: string) => {
-    const def = cardDefs.find(d => d.id === defId);
-    const st = cardStates.find(s => s.defId === defId);
-    if (!def || !st) return defId;
-    return `${def.name} (${st.currentSide})`;
-  };
-
   const isAssigned = topCardId && bottomCardId;
 
   return (
-    <div className="rounded-lg p-4 card-enter" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)' }}>
-      <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+    <div className="rounded-lg p-5 card-enter" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)', boxShadow: '0 8px 40px rgba(0,0,0,0.7)' }}>
+      <h3 className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
         {t('assign_actions')}
       </h3>
 
-      {/* Top action */}
-      <div className="mb-3">
-        <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
-          <ActionIcon icon="attack" size={10} />
-          {t('top_action')}
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {selectedCards.filter(Boolean).map(defId => (
-            <button
-              key={defId}
-              onClick={() => onChooseTop(defId)}
-              className="flex-1 px-2 py-1.5 rounded text-xs font-semibold transition-colors"
-              style={{
-                background: topCardId === defId ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-                color: topCardId === defId ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-              }}
-            >
-              {getName(defId)}
-            </button>
-          ))}
-          <button
-            onClick={onUseDefaultTop}
-            className="px-2 py-1.5 rounded text-xs transition-colors"
-            style={{
-              background: topCardId === '__default_top__' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-              color: topCardId === '__default_top__' ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
-            }}
-          >
-            {t('default_atk')}
-          </button>
-        </div>
-      </div>
+      {/* Two cards side by side */}
+      <div className="flex gap-4 justify-center mb-4">
+        {selectedCards.filter(Boolean).map(defId => {
+          const def = cardDefs.find(d => d.id === defId);
+          const cs = cardStates.find(s => s.defId === defId);
+          if (!def || !cs) return null;
+          const sideData = cs.currentSide === 'A' ? def.sideA : def.sideB;
+          const isTopAssigned = topCardId === defId;
+          const isBottomAssigned = bottomCardId === defId;
+          const isTopBlocked = bottomCardId === defId; // can't use same card for both
+          const isBottomBlocked = topCardId === defId;
 
-      {/* Bottom action */}
-      <div className="mb-3">
-        <div className="text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
-          <ActionIcon icon="move" size={10} />
-          {t('bottom_action')}
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {selectedCards.filter(Boolean).map(defId => {
-            const isBlocked = topCardId === defId;
-            return (
-              <button
-                key={defId}
-                onClick={() => !isBlocked && onChooseBottom(defId)}
-                disabled={isBlocked}
-                className="flex-1 px-2 py-1.5 rounded text-xs font-semibold transition-colors"
+          return (
+            <div key={defId} style={{ width: '220px' }}>
+              {/* Card header */}
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
+                  {def.name}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-bold text-white" style={{ background: cs.currentSide === 'A' ? 'var(--color-side-a)' : 'var(--color-side-b)' }}>
+                  {cs.currentSide}
+                </span>
+              </div>
+
+              {/* TOP zone */}
+              <div
+                onClick={() => !isTopBlocked && onChooseTop(defId)}
+                className="rounded-t-lg p-3 transition-all"
                 style={{
-                  background: bottomCardId === defId ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-                  color: bottomCardId === defId ? 'var(--color-bg-primary)' : isBlocked ? 'var(--color-text-muted)' : 'var(--color-text-secondary)',
-                  opacity: isBlocked ? 0.3 : 1,
+                  background: isTopAssigned ? 'rgba(196,165,90,0.15)' : 'var(--color-bg-card)',
+                  border: isTopAssigned ? '2px solid var(--color-gold)' : '2px solid var(--color-bg-card-hover)',
+                  borderBottom: 'none',
+                  opacity: isTopBlocked ? 0.3 : 1,
+                  cursor: isTopBlocked ? 'not-allowed' : 'pointer',
                 }}
               >
-                {getName(defId)}
-              </button>
-            );
-          })}
-          <button
-            onClick={onUseDefaultBottom}
-            className="px-2 py-1.5 rounded text-xs transition-colors"
-            style={{
-              background: bottomCardId === '__default_bottom__' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-              color: bottomCardId === '__default_bottom__' ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
-            }}
-          >
-            {t('default_move')}
-          </button>
-        </div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--color-text-muted)' }}>{t('top')}</span>
+                  {isTopAssigned && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'var(--color-gold)', color: 'var(--color-bg-primary)' }}>
+                      {t('assigned')}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                  {sideData.top.actions.map((a, i) => <ActionSummary key={i} action={a} />)}
+                  {sideData.top.isLost && <span className="text-[9px] font-bold" style={{ color: 'var(--color-blood-red-bright)' }}>PERDU</span>}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'var(--color-gold-dim)' }} />
+
+              {/* BOTTOM zone */}
+              <div
+                onClick={() => !isBottomBlocked && onChooseBottom(defId)}
+                className="rounded-b-lg p-3 transition-all"
+                style={{
+                  background: isBottomAssigned ? 'rgba(196,165,90,0.15)' : 'var(--color-bg-card)',
+                  border: isBottomAssigned ? '2px solid var(--color-gold)' : '2px solid var(--color-bg-card-hover)',
+                  borderTop: 'none',
+                  opacity: isBottomBlocked ? 0.3 : 1,
+                  cursor: isBottomBlocked ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--color-text-muted)' }}>{t('bottom')}</span>
+                  {isBottomAssigned && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'var(--color-gold)', color: 'var(--color-bg-primary)' }}>
+                      {t('assigned')}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                  {sideData.bottom.actions.map((a, i) => <ActionSummary key={i} action={a} />)}
+                  {sideData.bottom.isLost && <span className="text-[9px] font-bold" style={{ color: 'var(--color-blood-red-bright)' }}>PERDU</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Default action mini-cards */}
+      <div className="flex gap-2 justify-center mb-4">
+        <button
+          onClick={onUseDefaultTop}
+          className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-semibold transition-colors"
+          style={{
+            background: topCardId === '__default_top__' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+            color: topCardId === '__default_top__' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+            border: topCardId === '__default_top__' ? '1px solid var(--color-gold-bright)' : '1px solid var(--color-bg-card-hover)',
+          }}
+        >
+          <ActionIcon icon="attack" size={12} />
+          {t('default_atk')}
+        </button>
+        <button
+          onClick={onUseDefaultBottom}
+          className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-semibold transition-colors"
+          style={{
+            background: bottomCardId === '__default_bottom__' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+            color: bottomCardId === '__default_bottom__' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+            border: bottomCardId === '__default_bottom__' ? '1px solid var(--color-gold-bright)' : '1px solid var(--color-bg-card-hover)',
+          }}
+        >
+          <ActionIcon icon="move" size={12} />
+          {t('default_move')}
+        </button>
+      </div>
+
+      {/* Execution order toggle */}
+      {isAssigned && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider mb-1 text-center" style={{ color: 'var(--color-text-muted)' }}>
+            {t('execution_order')}
+          </div>
+          <div className="flex gap-1.5 justify-center">
+            <button
+              onClick={() => onSetActionOrder('top_first')}
+              className="px-3 py-1.5 rounded text-xs font-semibold transition-colors"
+              style={{
+                background: actionOrder === 'top_first' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+                color: actionOrder === 'top_first' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              {t('top_first')}
+            </button>
+            <button
+              onClick={() => onSetActionOrder('bottom_first')}
+              className="px-3 py-1.5 rounded text-xs font-semibold transition-colors"
+              style={{
+                background: actionOrder === 'bottom_first' ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
+                color: actionOrder === 'bottom_first' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              {t('bottom_first')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Confirm + Back */}
       <div className="flex gap-2">
@@ -118,7 +221,7 @@ export function CardSelector({
           </button>
         )}
         {isAssigned && (
-          <button onClick={onConfirm} className="btn-primary flex-1">
+          <button onClick={onConfirm} className="btn-primary btn-confirm flex-1">
             {t('execute_actions')}
           </button>
         )}

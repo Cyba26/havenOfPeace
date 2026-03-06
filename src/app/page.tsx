@@ -13,6 +13,7 @@ import { Inventory } from '@/components/ui/Inventory';
 import { MonsterPanel } from '@/components/ui/MonsterPanel';
 import { InitiativeTrack } from '@/components/ui/InitiativeTrack';
 import { PhaseAnnouncement } from '@/components/ui/PhaseAnnouncement';
+import { ModifierPopup } from '@/components/ui/ModifierPopup';
 import { ActionIcon } from '@/components/icons/ActionIcon';
 import { canRest, getDiscardedCards } from '@/engine/cards';
 import { MONSTER_DEFS, SCENARIOS } from '@/data/index';
@@ -25,8 +26,9 @@ export default function GamePage() {
     monsters, reachableHexes, validAttackTargets, log, infusedElements, turnOrder, currentTurnIndex, attackAnimation,
     pendingDamage, pendingDamageSource, shortRestLostCardId, shortRestRerolled,
     monsterStepQueue, monsterStepIndex, monsterStepPhase, monsterStepLogs, monsterAccumulatedDamage,
+    actionOrder, modifierPopup,
     initScenario, selectCard, deselectCard, setInitiativeCard,
-    confirmCardSelection, goBackToCardSelection, chooseTopCard, chooseBottomCard,
+    confirmCardSelection, goBackToCardSelection, chooseTopCard, chooseBottomCard, setActionOrder,
     useDefaultAction, confirmActionChoice, selectMoveHex,
     selectAttackTarget, endPlayerTurn, executeMonsterPhase, advanceMonsterStep,
     endRound, performShortRestAction, shortRestRerollAction,
@@ -175,7 +177,7 @@ export default function GamePage() {
       {/* ─── Main Area ─── */}
       <div className="flex-1 relative min-h-0">
         {/* Hex Grid — full width */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: showCardFan ? '240px' : '0' }}>
           <HexGrid
             hexMap={hexMap}
             hexSize={50}
@@ -288,18 +290,20 @@ export default function GamePage() {
         {/* ─── Action Choice overlay (centered) ─── */}
         {showActionChoice && character.selectedCards && (
           <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 80, background: 'rgba(0,0,0,0.4)' }}>
-            <div className="w-96">
+            <div className="w-full max-w-2xl mx-4">
               <CardSelector
                 selectedCards={character.selectedCards}
                 cardDefs={character.cardDefs}
                 cardStates={character.cards}
                 topCardId={character.topCardId}
                 bottomCardId={character.bottomCardId}
+                actionOrder={actionOrder}
                 onChooseTop={chooseTopCard}
                 onChooseBottom={chooseBottomCard}
                 onConfirm={confirmActionChoice}
                 onUseDefaultTop={() => useDefaultAction('top')}
                 onUseDefaultBottom={() => useDefaultAction('bottom')}
+                onSetActionOrder={setActionOrder}
                 onGoBack={goBackToCardSelection}
               />
             </div>
@@ -331,10 +335,15 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* ─── Modifier Popup ─── */}
+        {modifierPopup && (
+          <ModifierPopup value={modifierPopup.value} isMiss={modifierPopup.isMiss} isDouble={modifierPopup.isDouble} />
+        )}
+
         {/* ─── Card Fan floating over the board (no background) ─── */}
         {showCardFan && (
-          <div className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 50 }}>
-            <div className="pointer-events-auto px-4 pb-2">
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none" style={{ zIndex: 50 }}>
+            <div className="pointer-events-auto px-4">
               <CardFan
                 cardDefs={character.cardDefs}
                 cardStates={character.cards}

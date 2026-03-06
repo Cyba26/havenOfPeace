@@ -32,6 +32,54 @@ const CONDITION_LABELS: Record<ConditionType, string> = {
   strengthen: 'S',
 };
 
+function FigureIllustration({ type, label, radius }: { type: FigureType; label: string; radius: number }) {
+  const s = radius / 14;
+
+  if (type === 'character') {
+    return (
+      <g transform={`scale(${s})`}>
+        <path d="M-4,-12 L-6,-6 L-2,-4 L2,-4 L6,-6 L4,-12 Z" fill="currentColor" opacity={0.9} />
+        <line x1={-2} y1={-8} x2={2} y2={-8} stroke="rgba(0,0,0,0.5)" strokeWidth={1} />
+        <path d="M-8,-4 L-10,2 L-6,8 L6,8 L10,2 L8,-4 Z" fill="currentColor" opacity={0.7} />
+        <line x1={8} y1={-6} x2={12} y2={-14} stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} />
+        <line x1={6} y1={-5} x2={10} y2={-5} stroke="rgba(255,255,255,0.4)" strokeWidth={1} />
+      </g>
+    );
+  }
+
+  if (label.includes('guard')) {
+    return (
+      <g transform={`scale(${s})`}>
+        <circle cx={0} cy={-9} r={4} fill="currentColor" opacity={0.8} />
+        <path d="M-6,-5 L-7,4 L-4,8 L4,8 L7,4 L6,-5 Z" fill="currentColor" opacity={0.6} />
+        <path d="M-10,-2 L-10,5 Q-6,9 -4,4 L-4,-2 Z" fill="currentColor" opacity={0.9} />
+        <line x1={6} y1={0} x2={10} y2={-10} stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} />
+      </g>
+    );
+  }
+
+  if (label.includes('archer')) {
+    return (
+      <g transform={`scale(${s})`}>
+        <path d="M-3,-12 L0,-14 L3,-12 L3,-8 L-3,-8 Z" fill="currentColor" opacity={0.8} />
+        <path d="M-5,-8 L-6,4 L-3,8 L3,8 L6,4 L5,-8 Z" fill="currentColor" opacity={0.6} />
+        <path d="M-8,-8 Q-14,0 -8,8" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} />
+        <line x1={-8} y1={-8} x2={-8} y2={8} stroke="rgba(255,255,255,0.3)" strokeWidth={0.8} />
+        <line x1={-6} y1={0} x2={6} y2={0} stroke="rgba(255,255,255,0.5)" strokeWidth={1} />
+        <polyline points="6,-2 8,0 6,2" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={1} />
+      </g>
+    );
+  }
+
+  // Fallback
+  return (
+    <g transform={`scale(${s})`}>
+      <circle cx={0} cy={-8} r={4} fill="currentColor" opacity={0.8} />
+      <path d="M-5,-4 L-6,4 L-3,8 L3,8 L6,4 L5,-4 Z" fill="currentColor" opacity={0.6} />
+    </g>
+  );
+}
+
 interface FigureProps {
   coord: AxialCoord;
   hexSize: number;
@@ -71,9 +119,12 @@ export function Figure({ coord, hexSize, type, label, hp, maxHp, conditions, isT
       {/* Shadow */}
       <ellipse cx={0} cy={3} rx={radius * 0.9} ry={radius * 0.3} fill="rgba(0,0,0,0.4)" />
 
-      {/* Main circle */}
-      <circle cx={0} cy={0} r={radius} fill={color} opacity={0.9} />
-      <circle cx={0} cy={0} r={radius} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={1.5} />
+      {/* Main circle (background) */}
+      <circle cx={0} cy={0} r={radius} fill={color} opacity={0.3} />
+      <circle cx={0} cy={0} r={radius} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+
+      {/* Figure illustration */}
+      <FigureIllustration type={type} label={label} radius={radius} />
 
       {/* Elite crown indicator */}
       {isElite && (
@@ -105,18 +156,6 @@ export function Figure({ coord, hexSize, type, label, hp, maxHp, conditions, isT
         rx={2}
         fill={hpPercent > 0.5 ? 'var(--color-health-green-bright)' : hpPercent > 0.25 ? 'var(--color-gold)' : 'var(--color-blood-red-bright)'}
       />
-
-      {/* Label */}
-      <text
-        x={0}
-        y={2}
-        textAnchor="middle"
-        fontSize={type === 'character' ? 11 : 9}
-        fontWeight="bold"
-        fill="white"
-      >
-        {type === 'character' ? 'J' : label.charAt(0).toUpperCase()}
-      </text>
 
       {/* HP text */}
       <text
