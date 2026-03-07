@@ -16,7 +16,7 @@ import { PhaseAnnouncement } from '@/components/ui/PhaseAnnouncement';
 import { ModifierPopup } from '@/components/ui/ModifierPopup';
 import { ActionIcon } from '@/components/icons/ActionIcon';
 import { canRest, getDiscardedCards } from '@/engine/cards';
-import { MONSTER_DEFS, SCENARIOS } from '@/data/index';
+import { MONSTER_DEFS, SCENARIOS, generateRandomScenario } from '@/data/index';
 import { t } from '@/i18n';
 
 export default function GamePage() {
@@ -37,7 +37,6 @@ export default function GamePage() {
     useItem, resetGame,
   } = store;
 
-  const [showInventory, setShowInventory] = useState(false);
   const [showLog, setShowLog] = useState(false);
 
   const handCount = character.cards.filter(c => c.location === 'hand').length;
@@ -79,6 +78,31 @@ export default function GamePage() {
               </button>
             </div>
           ))}
+
+          {/* Random dungeon card */}
+          <div className="rounded-lg p-6 text-center w-64" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-gold-dim)' }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-gold)' }}>
+              3. {t('scenario.random')}
+            </h2>
+            <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('scenario.random.desc')}
+            </p>
+            <div className="flex flex-col gap-2">
+              {(['easy', 'medium', 'hard'] as const).map(diff => (
+                <button
+                  key={diff}
+                  onClick={() => {
+                    const seed = Date.now();
+                    const scenario = generateRandomScenario(diff, seed);
+                    initScenario(scenario.id, scenario);
+                  }}
+                  className="btn-secondary text-xs px-4 py-2"
+                >
+                  {t(`difficulty.${diff}`)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -145,22 +169,6 @@ export default function GamePage() {
               <MonsterPanel monsters={monsters} monsterDefs={MONSTER_DEFS} />
             </div>
 
-            {/* Inventory toggle */}
-            {character.items.length > 0 && (
-              <button
-                onClick={() => setShowInventory(!showInventory)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all w-full"
-                style={{
-                  background: showInventory ? 'var(--color-gold)' : 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-gold-dim)',
-                  color: showInventory ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-                }}
-              >
-                <ActionIcon icon="loot" size={12} />
-                {t('items')}
-              </button>
-            )}
-
             {/* Log toggle */}
             <button
               onClick={() => setShowLog(!showLog)}
@@ -175,6 +183,19 @@ export default function GamePage() {
             </button>
           </div>
         </StatusBar>
+
+        {/* Inventory (always visible) */}
+        {character.items.length > 0 && (
+          <div className="w-full mt-2">
+            <Inventory
+              itemDefs={character.itemDefs}
+              items={character.items}
+              onUseItem={useItem}
+              disabled={!isPlayerTurnActive}
+              compact
+            />
+          </div>
+        )}
       </div>
 
       {/* ─── Main Area ─── */}
@@ -203,41 +224,12 @@ export default function GamePage() {
 
         {/* ─── Initiative Track (top center) ─── */}
         {turnOrder.length > 0 && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2" style={{ zIndex: 55 }}>
+          <div className="absolute top-2 left-1/2 -translate-x-1/2" style={{ zIndex: 65 }}>
             <InitiativeTrack turnOrder={turnOrder} currentTurnIndex={currentTurnIndex} />
           </div>
         )}
 
-        {/* ─── Inventory overlay (top left of main area) ─── */}
-        {showInventory && (
-          <div
-            className="absolute top-2 left-2 w-72 rounded-lg p-3 overflow-y-auto"
-            style={{
-              background: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-gold-dim)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-              zIndex: 70,
-              maxHeight: '60vh',
-            }}
-          >
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-gold)', fontFamily: 'var(--font-display)' }}>
-                {t('items')}
-              </span>
-              <button onClick={() => setShowInventory(false)} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                ✕
-              </button>
-            </div>
-            <Inventory
-              itemDefs={character.itemDefs}
-              items={character.items}
-              onUseItem={useItem}
-              disabled={!isPlayerTurnActive}
-            />
-          </div>
-        )}
-
-        {/* ─── Game Log overlay (top right, below inventory) ─── */}
+        {/* ─── Game Log overlay (top left) ─── */}
         {showLog && (
           <div
             className="absolute top-2 left-2 w-80 rounded-lg overflow-hidden"
@@ -325,7 +317,7 @@ export default function GamePage() {
 
         {/* ─── Player turn action hints (centered top) ─── */}
         {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'SELECTING_MOVE_HEX' && pendingDamage === null && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-gold-dim)', zIndex: 60 }}>
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-gold-dim)', zIndex: 60 }}>
             <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-gold)' }}>
               <ActionIcon icon="move" size={14} />
               {t('select_destination')}
@@ -333,7 +325,7 @@ export default function GamePage() {
           </div>
         )}
         {phase === 'PLAYER_TURN' && playerTurnSubPhase === 'SELECTING_ATTACK_TARGET' && pendingDamage === null && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-blood-red-bright)', zIndex: 60 }}>
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg" style={{ background: 'rgba(10,10,15,0.85)', border: '1px solid var(--color-blood-red-bright)', zIndex: 60 }}>
             <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-blood-red-bright)' }}>
               <ActionIcon icon="attack" size={14} color="var(--color-blood-red-bright)" />
               {t('select_target')}

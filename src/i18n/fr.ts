@@ -196,6 +196,14 @@ const fr: Record<string, string> = {
   monster_step_next: 'Monstre suivant',
   monster_step_finish: 'Terminer le tour',
   monster_step_result: 'Résultat',
+
+  // ─── Random Scenario ──────────────────────────────────
+  'scenario.random': 'Donjon Aléatoire',
+  'scenario.random.desc': 'Un donjon généré aléatoirement avec plusieurs salles.',
+  'difficulty.easy': 'Facile',
+  'difficulty.medium': 'Moyen',
+  'difficulty.hard': 'Difficile',
+  random_rooms: 'salles',
 };
 
 export default fr;

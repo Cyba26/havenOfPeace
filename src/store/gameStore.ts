@@ -16,6 +16,7 @@ import { infuseElement, consumeElement } from '@/engine/elements';
 import type { ElementType } from '@/types/cards';
 import { CHARACTERS, MONSTER_DEFS, SCENARIOS, ITEMS } from '@/data';
 import type { ItemDef, ItemState } from '@/types/items';
+import type { ScenarioDef } from '@/types/scenario';
 
 interface GameStore {
   // ─── State ───────────────────────────────────────────
@@ -70,7 +71,7 @@ interface GameStore {
   monsterAccumulatedDamage: number;
 
   // ─── Actions ─────────────────────────────────────────
-  initScenario: (scenarioId: string) => void;
+  initScenario: (scenarioId: string, scenarioDef?: ScenarioDef) => void;
   selectCard: (defId: string) => void;
   deselectCard: (defId: string) => void;
   setInitiativeCard: (defId: string) => void;
@@ -123,6 +124,8 @@ function createEmptyCharacter(): CharacterState {
     activeRetaliateRange: 1,
     itemDefs: [],
     items: [],
+    moveBonus: 0,
+    attackBonus: 0,
   };
 }
 
@@ -169,8 +172,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ─── Scenario Init ──────────────────────────────────────────
 
-  initScenario: (scenarioId: string) => {
-    const scenario = SCENARIOS[scenarioId];
+  initScenario: (scenarioId: string, scenarioDef?: ScenarioDef) => {
+    const scenario = scenarioDef ?? SCENARIOS[scenarioId];
     if (!scenario) return;
 
     // Build hex map
@@ -249,6 +252,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         activeRetaliateRange: 1,
         itemDefs,
         items: itemStates,
+        moveBonus: 0,
+        attackBonus: 0,
       },
       monsterDefs,
       monsters,
@@ -481,10 +486,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!monster) return;
 
     const action = state.currentAction;
-    const baseAttack = action?.value ?? 2;
-    const piercing = action?.piercing ?? 0;
     const range = action?.range ?? 1;
     const isRanged = range > 1;
+    // Apply item bonuses: attackBonus (from activated items) + passive weapon bonuses
+    const passiveAttackBonus = state.character.itemDefs
+      .filter(d => d.usage === 'passive' && d.actions.some(a => a.type === 'attack' && (isRanged ? (a.range ?? 1) > 1 : (a.range ?? 1) <= 1)))
+      .reduce((sum, d) => sum + (d.actions.find(a => a.type === 'attack')?.value ?? 0), 0);
+    const baseAttack = (action?.value ?? 2) + state.character.attackBonus + passiveAttackBonus;
+    const piercing = action?.piercing ?? 0;
     const dist = hexDistance(state.character.position, monster.position);
     const isAdjacent = dist <= 1;
 
@@ -646,6 +655,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       bottomCardId: null,
       executedTop: false,
       executedBottom: false,
+      moveBonus: 0,
+      attackBonus: 0,
     };
 
     // Advance turn
@@ -1149,6 +1160,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
           get().addLog(`${updatedCharacter.name} uses ${itemDef.name}: Shield ${action.value}`);
           break;
         }
+        case 'move': {
+          updatedCharacter = {
+            ...updatedCharacter,
+            moveBonus: updatedCharacter.moveBonus + (action.value ?? 0),
+          };
+          get().addLog(`${updatedCharacter.name} uses ${itemDef.name}: +${action.value} Move`);
+          break;
+        }
+        case 'attack': {
+          updatedCharacter = {
+            ...updatedCharacter,
+            attackBonus: updatedCharacter.attackBonus + (action.value ?? 0),
+          };
+          get().addLog(`${updatedCharacter.name} uses ${itemDef.name}: +${action.value} Attack`);
+          break;
+        }
         default:
           get().addLog(`${updatedCharacter.name} uses ${itemDef.name}`);
           break;
@@ -1227,7 +1254,7 @@ function executeNextAction(get: GetFn, set: SetFn, action: AbilityAction) {
         return;
       }
 
-      const movePoints = action.value ?? 2;
+      const movePoints = (action.value ?? 2) + character.moveBonus;
       const blocked = getCharacterBlockedHexes(monsters);
       const reachable = getReachableHexes(character.position, movePoints, hexMap, blocked, action.jump);
       const reachableSet = new Set(reachable.keys());

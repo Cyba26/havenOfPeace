@@ -3,10 +3,13 @@ import { GUARD_DEF } from './monsters/guard';
 import { ARCHER_DEF } from './monsters/archer';
 import { SCENARIO_01 } from './scenarios/scenario01';
 import { SCENARIO_02 } from './scenarios/scenario02';
+import { generateRandomScenario } from './scenarios/scenario03-random';
 import { ALL_ITEMS } from './items/starter';
 import type { MonsterDef } from '@/types/monsters';
 import type { ScenarioDef } from '@/types/scenario';
 import type { ItemDef } from '@/types/items';
+
+export { generateRandomScenario } from './scenarios/scenario03-random';
 
 // ─── Character registry ───────────────────────────────────────────
 

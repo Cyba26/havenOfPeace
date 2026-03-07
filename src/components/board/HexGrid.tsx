@@ -4,7 +4,7 @@ import type { AxialCoord, HexMap } from '@/types/hex';
 import type { MonsterInstance, MonsterDef } from '@/types/monsters';
 import type { ConditionType } from '@/types/cards';
 import type { TerrainType } from '@/types/hex';
-import { hexToPixel, hexKey } from '@/engine/hex';
+import { hexToPixel, hexKey, hexPolygonPoints } from '@/engine/hex';
 import { HexTile } from './HexTile';
 import { Figure } from './Figure';
 import { t } from '@/i18n';
@@ -51,53 +51,45 @@ export function HexGrid({
     }
   }, [attackAnimation]);
 
+  // Compute wall hexes (outer ring around the map)
+  const wallCoords = useMemo(() => {
+    const HEX_DIRS = [
+      { q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 },
+      { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 },
+    ];
+    const walls = new Set<string>();
+    for (const cell of hexMap.cells.values()) {
+      for (const d of HEX_DIRS) {
+        const n = { q: cell.coord.q + d.q, r: cell.coord.r + d.r };
+        if (!hexMap.cells.has(hexKey(n))) {
+          walls.add(hexKey(n));
+        }
+      }
+    }
+    return Array.from(walls).map(k => {
+      const [q, r] = k.split(',').map(Number);
+      return { q, r };
+    });
+  }, [hexMap]);
+
   const viewBox = useMemo(() => {
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
-    for (const cell of hexMap.cells.values()) {
-      const pixel = hexToPixel(cell.coord, hexSize);
+    // Include both map cells and wall hexes in bounds
+    const allCoords = [
+      ...Array.from(hexMap.cells.values()).map(c => c.coord),
+      ...wallCoords,
+    ];
+    for (const coord of allCoords) {
+      const pixel = hexToPixel(coord, hexSize);
       minX = Math.min(minX, pixel.x);
       maxX = Math.max(maxX, pixel.x);
       minY = Math.min(minY, pixel.y);
       maxY = Math.max(maxY, pixel.y);
     }
-    const pad = hexSize * 3.5;
+    const pad = hexSize * 1.5;
     return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
-  }, [hexMap, hexSize]);
-
-  // Deterministic decorations around the map edges
-  const decorations = useMemo(() => {
-    const cells = Array.from(hexMap.cells.values());
-    const items: { x: number; y: number; type: 'tree' | 'rock' | 'bush'; seed: number }[] = [];
-    // Simple hash for determinism
-    const hash = (n: number) => ((n * 2654435761) >>> 0) % 1000;
-
-    cells.forEach((cell, idx) => {
-      const px = hexToPixel(cell.coord, hexSize);
-      // Place decorations at offsets around each border hex
-      const neighbors = [
-        { q: cell.coord.q + 1, r: cell.coord.r },
-        { q: cell.coord.q - 1, r: cell.coord.r },
-        { q: cell.coord.q, r: cell.coord.r + 1 },
-        { q: cell.coord.q, r: cell.coord.r - 1 },
-        { q: cell.coord.q + 1, r: cell.coord.r - 1 },
-        { q: cell.coord.q - 1, r: cell.coord.r + 1 },
-      ];
-      const isBorder = neighbors.some(n => !hexMap.cells.has(hexKey(n)));
-      if (!isBorder) return;
-
-      const h = hash(idx * 7 + 31);
-      if (h > 400) return; // Only ~40% of border hexes get decorations
-
-      const angle = (h % 6) * (Math.PI / 3) + Math.PI / 6;
-      const dist = hexSize * 1.6 + (h % 30);
-      const x = px.x + Math.cos(angle) * dist;
-      const y = px.y + Math.sin(angle) * dist;
-      const type = h % 3 === 0 ? 'tree' : h % 3 === 1 ? 'rock' : 'bush';
-      items.push({ x, y, type, seed: h });
-    });
-    return items;
-  }, [hexMap, hexSize]);
+  }, [hexMap, hexSize, wallCoords]);
 
   const aliveMonsters = useMemo(() =>
     Array.from(monsters.values()).filter(m => m.currentHP > 0),
@@ -106,27 +98,20 @@ export function HexGrid({
 
   return (
     <svg viewBox={viewBox} className="w-full h-full" style={{ maxHeight: '65vh' }}>
-      {/* Layer 0: Decorations */}
-      {decorations.map((d, i) => (
-        <g key={`deco-${i}`} transform={`translate(${d.x}, ${d.y})`} opacity={0.25}>
-          {d.type === 'tree' && (
-            <>
-              <rect x={-1.5} y={2} width={3} height={8} fill="#3a2a1a" />
-              <polygon points={`0,${-8 - (d.seed % 5)} ${-6 - (d.seed % 3)},4 ${6 + (d.seed % 3)},4`} fill="#1a3a1a" />
-              <polygon points={`0,${-12 - (d.seed % 4)} ${-4 - (d.seed % 2)},0 ${4 + (d.seed % 2)},0`} fill="#1a4a1a" />
-            </>
-          )}
-          {d.type === 'rock' && (
-            <path d={`M${-4 - d.seed % 3},3 L${-6 - d.seed % 2},0 L${-3},-4 L${2},-5 L${5 + d.seed % 3},-2 L${6},3 Z`} fill="#2a2a30" stroke="#3a3a40" strokeWidth={0.5} />
-          )}
-          {d.type === 'bush' && (
-            <>
-              <ellipse cx={-3} cy={0} rx={4 + d.seed % 2} ry={3} fill="#1a2a1a" />
-              <ellipse cx={3} cy={1} rx={3 + d.seed % 2} ry={2.5} fill="#1a3518" />
-            </>
-          )}
-        </g>
-      ))}
+      {/* Layer 0: Wall hexes (border) */}
+      {wallCoords.map(coord => {
+        const pixel = hexToPixel(coord, hexSize);
+        const points = hexPolygonPoints(pixel, hexSize * 0.95);
+        return (
+          <polygon
+            key={`wall-${coord.q},${coord.r}`}
+            points={points}
+            fill="#1a1a22"
+            stroke="#252530"
+            strokeWidth={1}
+          />
+        );
+      })}
 
       {/* Layer 1: Hex tiles */}
       {Array.from(hexMap.cells.values()).map(cell => {

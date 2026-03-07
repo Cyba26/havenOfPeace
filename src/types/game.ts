@@ -64,6 +64,10 @@ export interface CharacterState {
   itemDefs: ItemDef[];
   /** Equipped item states */
   items: ItemState[];
+  /** Bonus movement from items (resets at end of turn) */
+  moveBonus: number;
+  /** Bonus attack from items (resets at end of turn) */
+  attackBonus: number;
 }
 
 export interface GameState {

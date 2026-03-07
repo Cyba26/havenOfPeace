@@ -9,6 +9,7 @@ interface InventoryProps {
   items: ItemState[];
   onUseItem: (itemDefId: string) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 const USAGE_COLORS: Record<string, string> = {
@@ -23,7 +24,7 @@ const SLOT_ICONS: Record<string, string> = {
   generic: 'loot',
 };
 
-export function Inventory({ itemDefs, items, onUseItem, disabled }: InventoryProps) {
+export function Inventory({ itemDefs, items, onUseItem, disabled, compact }: InventoryProps) {
   if (items.length === 0) return null;
 
   return (
@@ -31,7 +32,7 @@ export function Inventory({ itemDefs, items, onUseItem, disabled }: InventoryPro
       <div className="text-[9px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: 'var(--color-text-gold)' }}>
         {t('items')}
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-2'} gap-1.5`}>
         {items.map(itemState => {
           const def = itemDefs.find(d => d.id === itemState.defId);
           if (!def) return null;
